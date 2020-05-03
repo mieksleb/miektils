@@ -83,7 +83,7 @@ subroutine reader(file_name,step,bp,x1,y1,z1,x2,y2,z2,reverse,circular,energy_ou
   end if
   close(1)
 
-  if((x1(1)-x1(bp)).le.tol.and.(y1(1)-y1(bp)).le.tol.and.(z1(1)-z1(bp)).le.tol) then
+  if((abs(x1(1)-x1(bp)).le.tol).and.(abs(y1(1)-y1(bp)).le.tol).and.(abs(z1(1)-z1(bp)).le.tol)) then
     circular=.True.
   else
     circular=.False.

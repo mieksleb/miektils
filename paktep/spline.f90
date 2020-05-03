@@ -11,7 +11,7 @@ subroutine get_spline(x,y,t,c,k,n,m,circular,ier)
   real :: xb,xe,s=0,fp
   integer :: iopt=0,m,k,nest,n,ier,i 
   integer :: lwrk
-  logical :: circular,nox
+  logical :: circular
   real, dimension(:), allocatable :: x,y,w
   real, dimension(:), allocatable :: t,c
   real, dimension(:), allocatable :: wrk

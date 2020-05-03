@@ -225,20 +225,14 @@ c  are invalid, control is immediately repassed to the calling program.
       if(k.le.0 .or. k.gt.5) go to 50
       k1 = k+1
       k2 = k1+1
-      write(*,*) "bleep"
       if(iopt.lt.(-1) .or. iopt.gt.1) go to 50
       nmin = 2*k1
-      write(*,*) "bloop"
       if(m.lt.k1 .or. nest.lt.nmin) go to 50
       lwest = m*k1+nest*(7+3*k)
-      write(*,*) "sneep"
       if(lwrk.lt.lwest) go to 50
-      write(*,*) "snoop"
       if(xb.gt.x(1) .or. xe.lt.x(m) .or. w(1).le.0.) go to 50
-      write(*,*) "fneep"
       do 10 i=2,m
          if(x(i-1).ge.x(i) .or. w(i).le.0.) go to 50
-      write(*,*) "fnoop"
   10  continue
       if(iopt.ge.0) go to 30
       if(n.lt.nmin .or. n.gt.nest) go to 50

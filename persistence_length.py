@@ -34,7 +34,7 @@ except Exception:
 traj_file = "miekbin/pl_trajectory.dat"
 conf = "miekbin/init.conf"
 top = "miekbin/init.top"
-npoints = 200
+npoints = 500
 
 
 

@@ -270,7 +270,7 @@ def plot_2D_spline(splines, pos, spline_domain, best_proj = True, xper=True, ype
 '''
 Takes an array of n splines, and an array of m bp positions, and returns an ax.plot object
 '''
-def plot_splines(splines, base_pos, spline_domain, npoints = 1000, annotate = True, marker_size=1):
+def plot_splines(splines, base_pos, spline_domain, npoints = 1000, annotate = False, marker_size=1):
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
 

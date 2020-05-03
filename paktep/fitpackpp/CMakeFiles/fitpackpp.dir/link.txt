@@ -1,2 +1,0 @@
-/Library/Developer/CommandLineTools/usr/bin/ar qc libfitpackpp.a  CMakeFiles/fitpackpp.dir/fitpackpp/BSplineCurve.cpp.o CMakeFiles/fitpackpp.dir/fitpackpp/BSplineSurface.cpp.o
-/Library/Developer/CommandLineTools/usr/bin/ranlib libfitpackpp.a

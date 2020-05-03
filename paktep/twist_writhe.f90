@@ -50,22 +50,21 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
                                               &,cz2,nz2,circular,twist_integral,writhe_integral)
 
   real :: pi = 3.1415926535897932
-  real, dimension(:), allocatable   :: x1,y1,z1,x2,y2,z2,tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
+  real, dimension(:), allocatable   :: tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
   integer                           :: ii,jj,srange,ier,k=3,nx1,ny1,nz1,nx2,ny2,nz2,bp,nuxx,nuyy,nuzz
   integer                           :: npoints,m,nnuxx,nnuyy,nnuzz,nsx,nsy,nsz
   logical                           :: circular
   real                              :: twist_integral,writhe_integral
   real                              :: bpinc
-  real                              :: tsp,tsp2,triple_scalar_product,delta_s,ds
+  real                              :: tsp,tsp2,delta_s,ds
   real, dimension(:), allocatable   :: uxx,uyy,uzz
-  real, dimension(:), allocatable   :: msxx,msyy,mszz
   real, dimension(:,:), allocatable :: uu,tt
   real                              :: dot_tu, norm
   real, dimension(:), allocatable   :: uxx_bpi,uyy_bpi,uzz_bpi
-  real, dimension(:), allocatable   :: x,y,z,m1xx,m1yy,m1zz,dmxx,dmyy,dmzz,duxx,duyy,duzz,xx,yy,zz
+  real, dimension(:), allocatable   :: m1xx,m1yy,m1zz,dmxx,dmyy,dmzz,duxx,duyy,duzz,xx,yy,zz
   real, dimension(:,:), allocatable :: duu
   real, dimension(:), allocatable   :: diff,tuxx,tuyy,tuzz,cnuxx,cnuyy,cnuzz,csx,csy,csz,cuxx,cuyy,cuzz
-  real, dimension(:), allocatable   :: tnuxx,tnuyy,tnuzz,tsx,tsy,tsz,ss,contour,bpi,mxx,myy,mzz
+  real, dimension(:), allocatable   :: tnuxx,tnuyy,tnuzz,tsx,tsy,tsz,ss,contour,bpi
   real, dimension(:), allocatable   :: sx1,sy1,sz1,sx2,sy2,sz2,snuxx,snuyy,snuzz,dum_x2
 
   m = npoints

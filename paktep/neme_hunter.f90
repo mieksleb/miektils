@@ -6,16 +6,17 @@ module nemehunter
 
 contains 
 
-subroutine neme_hunter_main(file_name,neme_pos)
- 
+subroutine neme_hunter_conf(file_name,neme_pos,neme_len,step)
+! callable subroutine for the plectoneme position of a single configuration
   integer :: neme_pos
   character :: file_name*20
 
 
   real, dimension(:), allocatable :: x1,y1,z1,x2,y2,z2,tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
   real, dimension(:), allocatable :: dum_x1
-  integer :: bp,npoints=100,nx1,ny1,nz1,nx2,ny2,nz2,k=3,ier,i,step
+  integer :: bp,npoints=1000,nx1,ny1,nz1,nx2,ny2,nz2,k=3,ier,i,step
   logical :: circular,reverse,energy_out
+  real :: neme_len
   
   ! call reader to load in positions
   call reader(file_name,step,bp,x1,y1,z1,x2,y2,z2,reverse.eqv..False.,circular,energy_out)
@@ -35,28 +36,26 @@ subroutine neme_hunter_main(file_name,neme_pos)
   call get_spline(dum_x1,z2,tz2,cz2,k,nz2,bp,circular,ier)
   
   call neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx2,ty2,cy2,ny2,tz2&
-                                              &,cz2,nz2,circular,neme_pos)
+                                              &,cz2,nz2,circular,neme_pos,neme_len)
 
-end subroutine neme_hunter_main
+end subroutine neme_hunter_conf
 
 subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx2,ty2,cy2,ny2,tz2&
-                                              &,cz2,nz2,circular,neme_pos)
+                                              &,cz2,nz2,circular,neme_pos,neme_len)
 
-  real, dimension(:), allocatable   :: x1,y1,z1,x2,y2,z2,tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
-  integer                           :: ii,jj,srange,ier,k=3,nx1,ny1,nz1,nx2,ny2,nz2,bp,nuxx,nuyy,nuzz,intersection,ival
-  integer                           :: npoints,m,nnuxx,nnuyy,nnuzz,nsx,nsy,nsz,neme_pos,i_end_loop,j_end_loop,diff_ij,i,j
-  logical                           :: circular,reverse
+  real, dimension(:), allocatable   :: tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
+  integer                           :: ii,ier,k=3,nx1,ny1,nz1,nx2,ny2,nz2,bp
+  integer                           :: npoints,m,nsx,nsy,nsz,neme_pos,i_end_loop,j_end_loop,diff_min,diff_max,i,j
+  integer                           :: i_plect_begin,j_plect_begin
+  logical                           :: circular
   real                              :: bpinc,delta_s
-  real, dimension(:), allocatable   :: msxx,msyy,mszz
-  real, dimension(:,:), allocatable :: uu,tt,boyo
-  real, dimension(:), allocatable   :: uxx_bpi,uyy_bpi,uzz_bpi
-  real, dimension(:), allocatable   :: x,y,z,m1xx,m1yy,m1zz,dmxx,dmyy,dmzz,duxx,duyy,duzz,xx,yy,zz
-  real, dimension(:), allocatable   :: diff,tuxx,tuyy,tuzz,cnuxx,cnuyy,cnuzz,csx,csy,csz,cuxx,cuyy,cuzz
-  real, dimension(:), allocatable   :: tnuxx,tnuyy,tnuzz,tsx,tsy,tsz,ss,contour,bpi,mxx,myy,mzz
-  real, dimension(:), allocatable   :: sx1,sy1,sz1,sx2,sy2,sz2,snuxx,snuyy,snuzz,dum_x2,curvature
-  real :: x_spread,y_spread,z_spread, tol=0.01
+  real, dimension(:), allocatable   :: m1xx,m1yy,m1zz,dmxx,dmyy,dmzz,xx,yy,zz
+  real, dimension(:), allocatable   :: csx,csy,csz
+  real, dimension(:), allocatable   :: tsx,tsy,tsz,ss,contour,bpi
+  real, dimension(:), allocatable   :: sx1,sy1,sz1,sx2,sy2,sz2,dum_x2,curvature
+  real :: x_spread,y_spread,z_spread, tol=0.01,neme_len
   logical :: x_proj,y_proj,z_proj
-  integer :: n, flag, max_curv,coarse_factor=5,npoints_coarse,mid,neme_pos2,cutoff=20
+  integer :: flag, max_curv,coarse_factor=5,npoints_coarse,mid,neme_pos2,cutoff=20
   real(kind=8) :: x5,y5,alpha=0.0
 
 
@@ -151,22 +150,28 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
     z_proj = .True.
   end if
 
-    ! now we project out the dimension with the smallest range
-    ! we now call a routine from DUTCH which determines if our polygon has any self intersections (scales quadratically)
+  ! now we project out the dimension with the smallest range
+  ! we now call a routine from DUTCH which determines if our polygon has any self intersections (scales quadratically)
+
+  diff_min=npoints_coarse  ! need a large upper bound for diff_min to detect end loop
+  diff_max = 0            ! need lower bound for minimum diff_max to detect beginning and ending of plectoneme
   do i=1,npoints_coarse-1
     do j=1,npoints_coarse-1
-      if (j>i+1) then
+      if (j>i+cutoff) then
         
         if (x_proj.eqv..True.) then
           call LINES_SEG_INT_2D(real(yy(i),8), real(zz(i),8), real(yy(i+1),8),real(zz(i+1),8),&
                       & real(yy(j),8),real(zz(j),8),real(yy(j+1),8),real(zz(j+1),8), flag,x5,y5)
           if (flag==1) then
-!            write(*,*) i,j
-            diff_ij=npoints_coarse  ! need a large upper bound for diff_ij to begin iterations
-            if ((j-i).le.diff_ij.and.(j-i).ge.cutoff) then ! if the differnece between i and j is smaller than the previous, then set i and j to be the new end loop indices
-              diff_ij=j-i
+            if ((j-i).le.diff_min.and.(j-i).ge.cutoff) then ! if the differnece between i and j is smaller than the previous, then set i and j to be the new end loop indices
+              diff_min=j-i
               i_end_loop = i
               j_end_loop = j
+            end if
+            if ((j-i).ge.diff_max.and.(j-i).ge.cutoff) then
+              diff_max = j-i
+              i_plect_begin = i
+              j_plect_begin = j
             else
             end if
           else
@@ -176,28 +181,33 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
           call LINES_SEG_INT_2D(real(xx(i),8), real(zz(i),8), real(xx(i+1),8),real(zz(i+1),8),&
                       & real(xx(j),8),real(zz(j),8),real(xx(j+1),8),real(zz(j+1),8), flag,x5,y5)
           if (flag==1) then
-!            write(*,*) i,j
-            diff_ij=npoints_coarse  ! need a large upper bound for diff_ij to begin iterations
-            if ((j-i).le.diff_ij.and.(j-i).ge.cutoff) then ! if the differnece between i and j is smaller than the previous, then set i and j to be the new end loop indices
-              diff_ij=j-i
+            if ((j-i).le.diff_min.and.(j-i).ge.cutoff) then ! if the differnece between i and j is smaller than the previous, then set i and j to be the new end loop indices
+              diff_min=j-i
               i_end_loop = i
               j_end_loop = j
-            else
+            end if
+            if ((j-i).ge.diff_max.and.(j-i).ge.cutoff) then
+              diff_max = j-i
+              i_plect_begin = i
+              j_plect_begin = j
             end if
           else
           end if
+
 
         else if (z_proj.eqv..True.) then
           call LINES_SEG_INT_2D(real(xx(i),8), real(yy(i),8), real(xx(i+1),8),real(yy(i+1),8),&
                       & real(xx(j),8),real(yy(j),8),real(xx(j+1),8),real(yy(j+1),8), flag,x5,y5)
           if (flag==1) then
-!            write(*,*) i,j
-            diff_ij=npoints_coarse  ! need a large upper bound for diff_ij to begin iterations
-            if ((j-i).le.diff_ij.and.(j-i).ge.cutoff) then ! if the differnece between i and j is smaller than the previous, then set i and j to be the new end loop indices
-              diff_ij=j-i
+            if ((j-i).le.diff_min.and.(j-i).ge.cutoff) then ! if the differnece between i and j is smaller than the previous, then set i and j to be the new end loop indices
+              diff_min=j-i
               i_end_loop = i
               j_end_loop = j
-            else
+            end if
+            if ((j-i).ge.diff_max.and.(j-i).ge.cutoff) then
+              diff_max = j-i
+              i_plect_begin = i
+              j_plect_begin = j
             end if
           else
           end if
@@ -211,6 +221,7 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
 !  we then convert these indices to
 !  i_end_loop=i_end_loop*coarse_factor
 !  j_end_loop=j_end_loop*coarse_factor
+  neme_len = bpi(j_plect_begin)-bpi(i_plect_begin)
   mid = int((i_end_loop + j_end_loop)/2)
   allocate(curvature(npoints_coarse))
   do i=1,npoints_coarse
