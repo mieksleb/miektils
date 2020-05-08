@@ -27,11 +27,11 @@ import numba
 
 
 # conf = "miekbin/last_conf.dat"
-# # conf = "miekbin/circle_300-Lk7.dat"
-# top = "miekbin/circle_300-Lk7.top"
+conf = "miekbin/circle_300-Lk7.dat"
+top = "miekbin/circle_300-Lk7.top"
 
-conf = "paktep/conf.conf"
-top = "paktep/top.top"
+# conf = "paktep/conf.conf"
+# top = "paktep/top.top"
 
 
 l = readers.LorenzoReader(conf, top)

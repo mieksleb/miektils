@@ -6,34 +6,40 @@ module nemehunter
 
 contains 
 
-subroutine neme_hunter_conf(file_name,neme_pos,neme_len,step)
+subroutine neme_hunter_conf(conf_file_name,top_file_name,neme_pos,neme_len,step)
 ! callable subroutine for the plectoneme position of a single configuration
   integer :: neme_pos
-  character :: file_name*20
+  character :: conf_file_name*20, top_file_name*20
 
 
   real, dimension(:), allocatable :: x1,y1,z1,x2,y2,z2,tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
   real, dimension(:), allocatable :: dum_x1
-  integer :: bp,npoints=1000,nx1,ny1,nz1,nx2,ny2,nz2,k=3,ier,i,step
-  logical :: circular,reverse,energy_out
+  integer :: bp,npoints=1000,nx1,ny1,nz1,nx2,ny2,nz2,k=3,ier,i,step,array_len
+  logical :: circular,reverse=.False.,energy_out
   real :: neme_len
   
   ! call reader to load in positions
-  call reader(file_name,step,bp,x1,y1,z1,x2,y2,z2,reverse.eqv..False.,circular,energy_out)
+  call reader(conf_file_name,top_file_name,step,bp,x1,y1,z1,x2,y2,z2,reverse.eqv..False.,circular,energy_out)
 
   ! generate a linear sequence to feed as independent variable in spline fitting procedure
-  allocate(dum_x1(bp))
-  do i=1,bp
-    dum_x1(i)=i-1
+ if (circular.eqv..True.) then
+    array_len = bp+1
+  else
+    array_len = bp
+  end if
+
+  allocate(dum_x1(array_len))
+   do i=1,array_len
+    dum_x1(i) = i-1
   end do
 
   ! calculate the splines of the x,y,z postions for both strands
-  call get_spline(dum_x1,x1,tx1,cx1,k,nx1,bp,circular,ier)
-  call get_spline(dum_x1,y1,ty1,cy1,k,ny1,bp,circular,ier)
-  call get_spline(dum_x1,z1,tz1,cz1,k,nz1,bp,circular,ier)
-  call get_spline(dum_x1,x2,tx2,cx2,k,nx2,bp,circular,ier)
-  call get_spline(dum_x1,y2,ty2,cy2,k,ny2,bp,circular,ier)
-  call get_spline(dum_x1,z2,tz2,cz2,k,nz2,bp,circular,ier)
+  call get_spline(dum_x1,x1,tx1,cx1,k,nx1,array_len,circular,reverse,ier)
+  call get_spline(dum_x1,y1,ty1,cy1,k,ny1,array_len,circular,reverse,ier)
+  call get_spline(dum_x1,z1,tz1,cz1,k,nz1,array_len,circular,reverse,ier)
+  call get_spline(dum_x1,x2,tx2,cx2,k,nx2,array_len,circular,.True.,ier)
+  call get_spline(dum_x1,y2,ty2,cy2,k,ny2,array_len,circular,.True.,ier)
+  call get_spline(dum_x1,z2,tz2,cz2,k,nz2,array_len,circular,.True.,ier)
   
   call neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx2,ty2,cy2,ny2,tz2&
                                               &,cz2,nz2,circular,neme_pos,neme_len)
@@ -47,7 +53,7 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
   integer                           :: ii,ier,k=3,nx1,ny1,nz1,nx2,ny2,nz2,bp
   integer                           :: npoints,m,nsx,nsy,nsz,neme_pos,i_end_loop,j_end_loop,diff_min,diff_max,i,j
   integer                           :: i_plect_begin,j_plect_begin
-  logical                           :: circular
+  logical                           :: circular,reverse=.False.
   real                              :: bpinc,delta_s
   real, dimension(:), allocatable   :: m1xx,m1yy,m1zz,dmxx,dmyy,dmzz,xx,yy,zz
   real, dimension(:), allocatable   :: csx,csy,csz
@@ -111,9 +117,9 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
 
 
   ! now we compute the spline objects t,c,k,n of the midpoint spline 
-  call get_spline(contour,m1xx,tsx,csx,k,nsx,npoints_coarse,circular,ier)
-  call get_spline(contour,m1yy,tsy,csy,k,nsy,npoints_coarse,circular,ier)
-  call get_spline(contour,m1zz,tsz,csz,k,nsz,npoints_coarse,circular,ier)
+  call get_spline(contour,m1xx,tsx,csx,k,nsx,npoints_coarse,circular,reverse,ier)
+  call get_spline(contour,m1yy,tsy,csy,k,nsy,npoints_coarse,circular,reverse,ier)
+  call get_spline(contour,m1zz,tsz,csz,k,nsz,npoints_coarse,circular,reverse,ier)
 
   allocate(xx(npoints_coarse))
   allocate(yy(npoints_coarse))

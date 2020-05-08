@@ -10,7 +10,7 @@ subroutine tangent_correlation(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx
   real, dimension(:), allocatable   :: tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2,corr
   integer                           :: ii,ier,k=3,nx1,ny1,nz1,nx2,ny2,nz2,bp
   integer                           :: npoints,m,nsx,nsy,nsz
-  logical                           :: circular
+  logical                           :: circular,reverse=.False.
   real                              :: bpinc, norm, norm_0
   real                              :: delta_s
   real, dimension(:), allocatable   :: m1xx,m1yy,m1zz,dmxx,dmyy,dmzz,xx,yy,zz
@@ -31,7 +31,7 @@ subroutine tangent_correlation(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx
   allocate(sz2(npoints))
  
  ! calculate the base pair index (bpi) common to both strands
-  bpinc = (real(bp,8)-1)/(real(npoints,8)-1)
+  bpinc = (real(bp,4)-1)/(real(npoints,4)-1)
   do ii=1,npoints
     bpi(ii)=(ii-1)*bpinc
   end do
@@ -54,7 +54,7 @@ subroutine tangent_correlation(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx
   do ii=2,npoints
     contour(ii) = contour(ii-1) + ((m1xx(ii)-m1xx(ii-1))**2+(m1yy(ii)-m1yy(ii-1))**2+(m1zz(ii)-m1zz(ii-1))**2)**0.5
   end do
-  delta_s = contour(npoints)/(real(npoints,8)-1)
+  delta_s = contour(npoints)/(real(npoints,4)-1)
 
   ss(1)=0
   do ii=2,npoints
@@ -68,9 +68,9 @@ subroutine tangent_correlation(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx
 
 
   ! now we compute the spline objects t,c,k,n of the midpoint spline 
-  call get_spline(contour,m1xx,tsx,csx,k,nsx,npoints,circular,ier)
-  call get_spline(contour,m1yy,tsy,csy,k,nsy,npoints,circular,ier)
-  call get_spline(contour,m1zz,tsz,csz,k,nsz,npoints,circular,ier)
+  call get_spline(contour,m1xx,tsx,csx,k,nsx,npoints,circular,reverse,ier)
+  call get_spline(contour,m1yy,tsy,csy,k,nsy,npoints,circular,reverse,ier)
+  call get_spline(contour,m1zz,tsz,csz,k,nsz,npoints,circular,reverse,ier)
 
   allocate(xx(npoints))
   allocate(yy(npoints))

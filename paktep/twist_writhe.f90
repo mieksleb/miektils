@@ -11,17 +11,17 @@ module twist_writhe_fortran
 
 contains
 
-subroutine twist_writhe_main(file_name,twist_integral,writhe_integral)
+subroutine twist_writhe_conf(conf_file_name,top_file_name,twist_integral,writhe_integral)
 
   real :: twist_integral,writhe_integral
   real, dimension(:), allocatable :: x1,y1,z1,x2,y2,z2,tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
   real, dimension(:), allocatable :: dum_x1
   integer :: bp,npoints=1000,nx1,ny1,nz1,nx2,ny2,nz2,k=3,ier,i,step
-  logical :: circular,reverse,energy_out
-  character :: file_name*20
+  logical :: circular,reverse=.False.,energy_out
+  character :: conf_file_name*20,top_file_name*20
 
   ! call reader to load in positions
-  call reader(file_name,step,bp,x1,y1,z1,x2,y2,z2,reverse.eqv..False.,circular,energy_out)
+  call reader(conf_file_name,top_file_name,step,bp,x1,y1,z1,x2,y2,z2,reverse.eqv..False.,circular,energy_out)
 
   ! generate a linear sequence to feed as independent variable in spline fitting procedure
   allocate(dum_x1(bp))
@@ -30,19 +30,19 @@ subroutine twist_writhe_main(file_name,twist_integral,writhe_integral)
   end do
 
   ! calculate the splines of the x,y,z postions for both strands
-  call get_spline(dum_x1,x1,tx1,cx1,k,nx1,bp,circular,ier)
-  call get_spline(dum_x1,y1,ty1,cy1,k,ny1,bp,circular,ier)
-  call get_spline(dum_x1,z1,tz1,cz1,k,nz1,bp,circular,ier)
-  call get_spline(dum_x1,x2,tx2,cx2,k,nx2,bp,circular,ier)
-  call get_spline(dum_x1,y2,ty2,cy2,k,ny2,bp,circular,ier)
-  call get_spline(dum_x1,z2,tz2,cz2,k,nz2,bp,circular,ier)
+  call get_spline(dum_x1,x1,tx1,cx1,k,nx1,bp,circular,reverse,ier)
+  call get_spline(dum_x1,y1,ty1,cy1,k,ny1,bp,circular,reverse,ier)
+  call get_spline(dum_x1,z1,tz1,cz1,k,nz1,bp,circular,reverse,ier)
+  call get_spline(dum_x1,x2,tx2,cx2,k,nx2,bp,circular,.True.,ier)
+  call get_spline(dum_x1,y2,ty2,cy2,k,ny2,bp,circular,.True.,ier)
+  call get_spline(dum_x1,z2,tz2,cz2,k,nz2,bp,circular,.True.,ier)
 
   ! call main subroutine 
   call twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx2,ty2,cy2,ny2,tz2,&
                                             &cz2,nz2,circular,twist_integral,writhe_integral)
 
 
-end subroutine twist_writhe_main
+end subroutine twist_writhe_conf
 
 
 
@@ -53,7 +53,7 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   real, dimension(:), allocatable   :: tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
   integer                           :: ii,jj,srange,ier,k=3,nx1,ny1,nz1,nx2,ny2,nz2,bp,nuxx,nuyy,nuzz
   integer                           :: npoints,m,nnuxx,nnuyy,nnuzz,nsx,nsy,nsz
-  logical                           :: circular
+  logical                           :: circular,reverse=.False.
   real                              :: twist_integral,writhe_integral
   real                              :: bpinc
   real                              :: tsp,tsp2,delta_s,ds
@@ -69,7 +69,7 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
 
   m = npoints
 
-  allocate(contour(npoints))
+  allocate(contour(npoints-1))
   allocate(ss(npoints))
   allocate(bpi(npoints))
   allocate(tt(3,npoints))
@@ -83,11 +83,17 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   allocate(sz2(npoints))
   
  ! calculate the base pair index (bpi) common to both strands
-  bpinc = (real(bp,8)-1)/(real(npoints,8)-1)
+  if (circular.eqv..True.) then  
+    bpinc = real(bp,4)/(real(npoints,4)-1)
+  else 
+    bpinc = (real(bp,4)-1)/(real(npoints,4)-1)
+  end if
+
   do ii=1,npoints
     bpi(ii)=(ii-1)*bpinc
   end do
- 
+
+
  ! evaluate the splines in bpi, output is sij for i=x,y,z j=1,2
   call evaluate_spline(bpi,sx1,tx1,cx1,k,nx1,npoints,circular,ier,0)
   call evaluate_spline(bpi,sy1,ty1,cy1,k,ny1,npoints,circular,ier,0)
@@ -100,28 +106,29 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   m1yy = (sy1+sy2)/2
   m1zz = (sz1+sz2)/2
 
-  ! now contruct contour_len, a sequence which passes through all base pairs of lenght npoints
+  ! now contruct contour_len, a sequence which passes through all base pairs of length npoints
   contour(1)=0
   do ii=2,npoints
     contour(ii) = contour(ii-1) + ((m1xx(ii)-m1xx(ii-1))**2+(m1yy(ii)-m1yy(ii-1))**2+(m1zz(ii)-m1zz(ii-1))**2)**0.5
   end do
   delta_s = contour(npoints)/(real(npoints,8)-1)
 
+
+  ! from the average arclength parameter delta_s, we construct ss, the average arclength array
+  ! this will be used as integration domain for both twist and writhe
   ss(1)=0
   do ii=2,npoints
     ss(ii) = delta_s*(ii-1)
-  end do 
-
+  end do
   allocate(dum_x2(npoints))
   do ii=1,npoints
     dum_x2(ii)=ii-1
   end do
 
-
   ! now we compute the spline objects t,c,k,n of the midpoint spline 
-  call get_spline(contour,m1xx,tsx,csx,k,nsx,npoints,circular,ier)
-  call get_spline(contour,m1yy,tsy,csy,k,nsy,npoints,circular,ier)
-  call get_spline(contour,m1zz,tsz,csz,k,nsz,npoints,circular,ier)
+  call get_spline(contour,m1xx,tsx,csx,k,nsx,npoints,circular,reverse,ier)
+  call get_spline(contour,m1yy,tsy,csy,k,nsy,npoints,circular,reverse,ier)
+  call get_spline(contour,m1zz,tsz,csz,k,nsz,npoints,circular,reverse,ier)
   
   allocate(xx(npoints))
   allocate(yy(npoints))
@@ -140,15 +147,15 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   tt(2,:)=dmyy(:)
   tt(3,:)=dmzz(:)
 
+
   ! we also need the vector u(s) which points between the base pairs
   uxx_bpi = sx2-sx1
   uyy_bpi = sy2-sy1
   uzz_bpi = sz2-sz1
-
   ! we then the spline of this normal and evaluate it
-  call get_spline(contour,uxx_bpi,tuxx,cuxx,k,nuxx,npoints,circular,ier)
-  call get_spline(contour,uyy_bpi,tuyy,cuyy,k,nuyy,npoints,circular,ier)
-  call get_spline(contour,uzz_bpi,tuzz,cuzz,k,nuzz,npoints,circular,ier)
+  call get_spline(contour,uxx_bpi,tuxx,cuxx,k,nuxx,npoints,circular,reverse,ier)
+  call get_spline(contour,uyy_bpi,tuyy,cuyy,k,nuyy,npoints,circular,reverse,ier)
+  call get_spline(contour,uzz_bpi,tuzz,cuzz,k,nuzz,npoints,circular,reverse,ier)
   allocate(uxx(npoints))
   allocate(uyy(npoints))
   allocate(uzz(npoints))
@@ -176,9 +183,9 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   
 
   ! we now do a spline fit to the components of uu
-  call get_spline(ss,snuxx,tnuxx,cnuxx,k,nnuxx,npoints,circular,ier)
-  call get_spline(ss,snuyy,tnuyy,cnuyy,k,nnuyy,npoints,circular,ier)
-  call get_spline(ss,snuzz,tnuzz,cnuzz,k,nnuzz,npoints,circular,ier)
+  call get_spline(ss,snuxx,tnuxx,cnuxx,k,nnuxx,npoints,circular,reverse,ier)
+  call get_spline(ss,snuyy,tnuyy,cnuyy,k,nnuyy,npoints,circular,reverse,ier)
+  call get_spline(ss,snuzz,tnuzz,cnuzz,k,nnuzz,npoints,circular,reverse,ier)
   ! evalauate thje derivative of this new spline
   allocate(duxx(npoints))
   allocate(duyy(npoints))
@@ -191,7 +198,6 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   duu(1,:)=duxx(:)
   duu(2,:)=duyy(:)
   duu(3,:)=duzz(:)
-
 
   ds = (contour(npoints)-contour(1))/(npoints-1)
   twist_integral = 0.0
