@@ -61,8 +61,8 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
   real, dimension(:), allocatable   :: sx1,sy1,sz1,sx2,sy2,sz2,dum_x2,curvature
   real :: x_spread,y_spread,z_spread, tol=0.01,neme_len
   logical :: x_proj,y_proj,z_proj
-  integer :: flag, max_curv,coarse_factor=5,npoints_coarse,mid,neme_pos2,cutoff=20
-  real(kind=8) :: x5,y5,alpha=0.0
+  integer :: flag, max_curv,coarse_factor=5,npoints_coarse,mid,neme_pos2,cutoff=10
+  real(kind=8) :: x5,y5,alpha=0.1
 
 
   ! we begin with a much coarser spline fit as the self intersection algorith scales quadratically
@@ -80,11 +80,15 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
   allocate(sz2(npoints_coarse))
 
 ! calculate the base pair index (bpi) common to both strands
-  bpinc = (real(bp,8)-1)/(real(npoints_coarse,8)-1)
+  if (circular.eqv..True.) then
+    bpinc = real(bp,4)/(real(npoints_coarse,4)-1)
+  else
+    bpinc = (real(bp,4)-1)/(real(npoints_coarse,4)-1)
+  end if
+
   do ii=1,npoints_coarse
     bpi(ii)=(ii-1)*bpinc
   end do
-  
   
  ! evaluate the splines in bpi, output is sij for i=x,y,z j=1,2
   call evaluate_spline(bpi,sx1,tx1,cx1,k,nx1,npoints_coarse,circular,ier,0)
@@ -116,7 +120,7 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
   end do
 
 
-  ! now we compute the spline objects t,c,k,n of the midpoint spline 
+  ! now we compute the spline objects t,c,k,n of the midpoint spline
   call get_spline(contour,m1xx,tsx,csx,k,nsx,npoints_coarse,circular,reverse,ier)
   call get_spline(contour,m1yy,tsy,csy,k,nsy,npoints_coarse,circular,reverse,ier)
   call get_spline(contour,m1zz,tsz,csz,k,nsz,npoints_coarse,circular,reverse,ier)
@@ -127,6 +131,7 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
   allocate(dmxx(npoints_coarse))
   allocate(dmyy(npoints_coarse))
   allocate(dmzz(npoints_coarse))
+
   ! we now evaluate this midpoint spline and its derivatives
   call evaluate_spline(ss,xx,tsx,csx,k,nsx,npoints_coarse,circular,ier,0)
   call evaluate_spline(ss,yy,tsy,csy,k,nsy,npoints_coarse,circular,ier,0)
@@ -134,8 +139,6 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
   call evaluate_spline(ss,dmxx,tsx,csx,k,nsx,npoints_coarse,circular,ier,1)
   call evaluate_spline(ss,dmyy,tsy,csy,k,nsy,npoints_coarse,circular,ier,1)
   call evaluate_spline(ss,dmzz,tsz,csz,k,nsz,npoints_coarse,circular,ier,1)
-
-
   ! we now find which axis we have the most spread and choose to project out this dimension to obtain a 2D spline
   x_spread = maxval(xx)-minval(xx)
   y_spread = maxval(yy)-minval(yy)
@@ -158,9 +161,10 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
 
   ! now we project out the dimension with the smallest range
   ! we now call a routine from DUTCH which determines if our polygon has any self intersections (scales quadratically)
-
   diff_min=npoints_coarse  ! need a large upper bound for diff_min to detect end loop
   diff_max = 0            ! need lower bound for minimum diff_max to detect beginning and ending of plectoneme
+  i_end_loop=0
+  j_end_loop=0
   do i=1,npoints_coarse-1
     do j=1,npoints_coarse-1
       if (j>i+cutoff) then
@@ -169,6 +173,8 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
           call LINES_SEG_INT_2D(real(yy(i),8), real(zz(i),8), real(yy(i+1),8),real(zz(i+1),8),&
                       & real(yy(j),8),real(zz(j),8),real(yy(j+1),8),real(zz(j+1),8), flag,x5,y5)
           if (flag==1) then
+!            write(*,*) "hoony"
+!            write(*,*) i,j,bpi(npoints_coarse-i),bpi(npoints_coarse-j)
             if ((j-i).le.diff_min.and.(j-i).ge.cutoff) then ! if the differnece between i and j is smaller than the previous, then set i and j to be the new end loop indices
               diff_min=j-i
               i_end_loop = i
@@ -187,6 +193,8 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
           call LINES_SEG_INT_2D(real(xx(i),8), real(zz(i),8), real(xx(i+1),8),real(zz(i+1),8),&
                       & real(xx(j),8),real(zz(j),8),real(xx(j+1),8),real(zz(j+1),8), flag,x5,y5)
           if (flag==1) then
+!            write(*,*) "hoony"
+!            write(*,*) i,j,bpi(npoints_coarse-i),bpi(npoints_coarse-j)
             if ((j-i).le.diff_min.and.(j-i).ge.cutoff) then ! if the differnece between i and j is smaller than the previous, then set i and j to be the new end loop indices
               diff_min=j-i
               i_end_loop = i
@@ -205,6 +213,8 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
           call LINES_SEG_INT_2D(real(xx(i),8), real(yy(i),8), real(xx(i+1),8),real(yy(i+1),8),&
                       & real(xx(j),8),real(yy(j),8),real(xx(j+1),8),real(yy(j+1),8), flag,x5,y5)
           if (flag==1) then
+!            write(*,*) "hoony"
+!            write(*,*) i,j,bpi(npoints_coarse-i),bpi(npoints_coarse-j)
             if ((j-i).le.diff_min.and.(j-i).ge.cutoff) then ! if the differnece between i and j is smaller than the previous, then set i and j to be the new end loop indices
               diff_min=j-i
               i_end_loop = i
@@ -224,27 +234,39 @@ subroutine neme_hunter(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx
     end do
   end do
    
-!  we then convert these indices to
-!  i_end_loop=i_end_loop*coarse_factor
-!  j_end_loop=j_end_loop*coarse_factor
-  neme_len = bpi(j_plect_begin)-bpi(i_plect_begin)
-  mid = int((i_end_loop + j_end_loop)/2)
-  allocate(curvature(npoints_coarse))
-  do i=1,npoints_coarse
-    if (i.le.i_end_loop) then
-      curvature(i) = 0
-    else if (i.ge.j_end_loop) then
-      curvature(i)=0
-    else
-      curvature(i) = (dmxx(i)**2+dmyy(i)**2+dmzz(i)**2)*exp(alpha*abs(i-mid))
-      curvature(1)=0
-      curvature(npoints_coarse)=0
-    end if
-  end do
-  max_curv = maxloc(curvature,dim=1)
-  neme_pos=int(bpi(max_curv))
-  neme_pos2=int(bpi(mid))
-!  write(*,*) neme_pos
+!  we then do a curvature minimisation on the loop between the end loop indices to locate the plectoneme
+!  write(*,*) "end loops"
+!  write(*,*) i_end_loop,j_end_loop, bpi(i_end_loop),bpi(j_end_loop)
+  if (i_end_loop.eq.0.and.j_end_loop.eq.0) then
+    neme_pos=0
+    neme_len=0
+  else 
+    allocate(curvature(npoints_coarse))
+    mid = int((i_end_loop + j_end_loop)/2)
+!    write(*,*) mid
+    do i=1,npoints_coarse
+      if (i.le.i_end_loop) then
+        curvature(i) = 0
+      else if (i.ge.j_end_loop) then
+        curvature(i)=0
+      else
+        curvature(i) = (dmxx(i)**2+dmyy(i)**2+dmzz(i)**2)*exp(-alpha*abs(i-mid))
+        curvature(1)=0
+        curvature(npoints_coarse)=0
+      end if
+    end do
+    i_end_loop= npoints_coarse-i_end_loop
+    j_end_loop= npoints_coarse-j_end_loop
+    neme_len = bpi(j_plect_begin)-bpi(i_plect_begin)
+!    write(*,*) "end loops"
+!    write(*,*) i_end_loop,j_end_loop, bpi(i_end_loop),bpi(j_end_loop)
+    max_curv = maxloc(curvature,dim=1)
+!    write(*,*) max_curv
+    max_curv=npoints_coarse-max_curv
+    neme_pos=int(bpi(max_curv))
+    neme_pos2=int(bpi(mid))
+!    write(*,*) neme_pos
+  end if
 end subroutine neme_hunter
 
 
