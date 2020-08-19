@@ -6,14 +6,13 @@ Created on Wed Mar 18 19:32:52 2020
 @author: michaelselby
 """
 import sys
+import re
 
 file_name = sys.argv[1]
 sequence = open(file_name,"r").readlines()
-sequence_length = len(sequence)
 sequence  = str(sequence)
-sequence =  sequence[2:sequence_length-3]
+sequence = re.search('([agct]+)',sequence).group()
 sequence_length = len(sequence)
-
 
 
 sequence = "g" + sequence + "c"  # we add a g and c to the sequence as these are destoyed in the circularisation
