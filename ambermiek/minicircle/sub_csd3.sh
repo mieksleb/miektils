@@ -10,7 +10,7 @@
 
 #! sbatch directives begin here ###############################
 #! Name of the job:
-STONK DOG
+jobinput
 #! Which project should be charged (NB Wilkes2 projects end in '-GPU'):
 #SBATCH -A T2-CS118-GPU
 #! How many whole nodes should be allocated?
@@ -59,7 +59,9 @@ application="/usr/local/software/modulefiles/amber/16-gpu"
 
 #! Run options for the application:
 
-JUMBO DOG
+amberinput
+
+cpptrajinput
 
 #! Work directory (i.e. where the job will run):
 workdir="$SLURM_SUBMIT_DIR"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory

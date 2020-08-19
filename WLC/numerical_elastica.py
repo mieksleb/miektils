@@ -21,12 +21,12 @@ import matplotlib.pyplot as plt
 a1 = 0.65
 a = 1
 f = 1
-L = 0.3
+L1 = 0.3
+L = 10
 
 
-gump = scipy.special.ellipeinc(1, 1.52)
 
-x = L*f**0.5/(2*(a1)**0.5)
+x = L1*f**0.5/(2*(a1)**0.5)
 r = a1/a
 
 
@@ -46,15 +46,15 @@ def am(u,k):
 
 def Energy_Full(k):
     u=x/k
-    return 4*(a1*f)**0.5*(1/k)*(2*scipy.special.ellipeinc(am(u,k),k**2)-u)+8*(a*f)**0.5*(1-sn(u,k))+2*L*f
+    return 4*(a1*f)**0.5*(1/k)*(2*scipy.special.ellipeinc(am(u,k),k**2)-u)+8*(a*f)**0.5*(1-sn(u,k))+2*L1*f
 
 def Energy_Recip(alpha):
-    return 8*(a1*f)**0.5*(scipy.special.ellipeinc(am(x,alpha),alpha**2)-x+0.5*x*alpha**2)+8*(a*f)**0.5*(1-alpha*sn(x,alpha))+2*L*f
+    return 8*(a1*f)**0.5*(scipy.special.ellipeinc(am(x,alpha),alpha**2)-x+0.5*x*alpha**2)+8*(a*f)**0.5*(1-alpha*sn(x,alpha))+2*L1*f
     
 
 def Energy(k):
     u=x/k
-    return 4*(a1*f)**0.5*(1/k)*(2*k**2*sn(u,k)*cn(u,k)/dn(u,k)-x/k)+8*(a*f)**0.5*(1-sn(u,k))+2*L*f
+    return 4*(a1*f)**0.5*(1/k)*(2*k**2*sn(u,k)*cn(u,k)/dn(u,k)-x/k)+8*(a*f)**0.5*(1-sn(u,k))+2*L1*f
 
 
 # this function's zero is the minimum of the elastic energy, i.e it is the first derivative of the energy
@@ -65,14 +65,14 @@ def function(k):
 # another formulation of the energy, this only has dependence on k in the sn and sn^2 terms
 def Energy2(k):
     u = x/k
-    return 8*(a*f)**0.5*(1-sn(u,k)) + 8*(a1*f)**0.5*sn(u,k)+2*L*f
+    return 8*(a*f)**0.5*(1-sn(u,k)) + 8*(a1*f)**0.5*sn(u,k)+2*L1*f
 
 # linear approximation to the energy in the case that x is small
 def Energy_Linear(k):
-    return 8*(a*f)**0.5 + 2*L*f*(1-(1/r))
+    return 8*(a*f)**0.5 + 2*L1*f*(1-(1/r))
 
 def Energy_Quadratic(k):
-    return 8*(a*f)**0.5 + 2*L*f*(1-(1/r))-(1/6)*(L**3*a*f**2/(a1**2))*(1-(1/r))
+    return 8*(a*f)**0.5 + 2*L1*f*(1-(1/r))-(1/6)*(L1**3*a*f**2/(a1**2))*(1-(1/r))
 
 def Energy_Homoclinic(k):
     return 8*(a*f)**0.5*(1-np.tanh(x))+8*(a1*f)**0.5*np.tanh(x)
@@ -143,4 +143,83 @@ print("Energy (Homoclinic)", E_homo)
 
 
 
-fvals=np.linspace(0,10)
+
+
+'''
+Now for the plots
+'''
+
+
+lam1=(a1/f)**0.5
+lam=(a/f)**0.5
+r=lam1/lam
+npoints=100
+smin=-L/2
+smax=L/2
+s2min=-L1/2
+s2max=L1/2
+
+
+def sech(x):
+    return (np.cosh(x))**(-1)
+
+
+def h(lam,lam1,L1):
+    return 2*lam1*(1-sech(L1/(lam1)))-2*lam*(1-sech(L1/(lam)))
+
+
+s_flop = np.linspace(smin,smax,npoints)      # arclength range for inhomogeneity
+s = np.linspace(s2min,s2max,npoints)         # arclength range for posiitve homogenous region
+
+x_flop = [None]*npoints                      # x values for floppy segment
+y_flop = [None]*npoints                      # y values for floppy segment
+for i in range(0,npoints):
+    y_flop[i] = 2*lam1*((sech((s_flop[i]/lam1)))-1)
+    x_flop[i] = s_flop[i]-2*lam*np.tanh(s_flop[i]/lam1)
+    
+x = [None]*npoints
+y = [None]*npoints
+for i in range(0,npoints):
+    y[i] = 2*lam1*(sech((s[i]/lam))-1)+h(lam,lam1,L)
+    x[i] = s[i]-2*lam*np.tanh(s[i]/lam)
+    
+del_list=[]
+end_x = x_flop[0]
+end_y = y_flop[0]
+for i in range(0,npoints):
+    if (-end_x<x[i]<end_x) and (y[i]>end_y):
+        del_list.append(i)
+        x[i]=0
+        y[i]=0
+
+        
+print(x_flop[0],y_flop[0])
+print(x_flop[-1],y_flop[-1])
+
+xx = [None]*del_list[0]         # x values for hom loop with floppy region removed
+yy = [None]*del_list[0]         # y values for hom loop with floppy region removed
+for i in range(0,del_list[0]):
+    xx[i] = x[i]
+    yy[i] = y[i]
+    
+xx_flop = [None]*(npoints-del_list[-1]-1)
+yy_flop = [None]*(npoints-del_list[-1]-1)
+for i in range(0,npoints-del_list[-1]-1):
+    xx_flop[i] = x[del_list[-1]+i+1]
+    yy_flop[i] = y[del_list[-1]+i+1]
+    
+    
+plt.plot(xx,yy, color='blue')
+plt.plot(-xx,yy,color='blue')
+plt.plot(x_flop[0],y_flop[0],color='red',marker='x')
+plt.plot(-x_flop[0],y_flop[0],color='red',marker='x')
+plt.plot(xx_flop,yy_flop,color='orange')
+plt.show()
+  
+
+
+
+
+
+
+
