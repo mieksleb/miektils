@@ -10,6 +10,7 @@ from scipy.optimize import fsolve
 from scipy.optimize import minimize
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 
 
 # parameters
@@ -18,16 +19,20 @@ import matplotlib.pyplot as plt
 # a is the bending modulus of the rest of the curve
 # f is the applied force
 
-a1 = 0.65
+a1 = 0.4
 a = 1
 f = 1
 L1 = 0.3
 L = 10
+theta0=np.pi/10
+npoints=100
 
 
 
 x = L1*f**0.5/(2*(a1)**0.5)
+
 r = a1/a
+ 
 
 
 # define the 4 Jacobi elliptic functions: sn, cn, dn and am
@@ -44,42 +49,76 @@ def dn(u,k):
 def am(u,k):
     return scipy.special.ellipj(u,k**2)[3]
 
-def Energy_Full(k):
+# define the incomplete elliptic integral of the second kind
+def E(theta,k):
+    return scipy.special.ellipeinc(theta,k**2)
+
+def F(theta,k):
+    return scipy.special.ellipkinc(theta,k**2)
+
+
+
+
+
+
+def Energy_floppy(k,a,a1,L1,r,f):
+    x = L1*f**0.5/(2*(a1)**0.5)
     u=x/k
-    return 4*(a1*f)**0.5*(1/k)*(2*scipy.special.ellipeinc(am(u,k),k**2)-u)+8*(a*f)**0.5*(1-sn(u,k))+2*L1*f
+    return 4*(a1*f)**0.5*(1/k)*(2*E(am(u,k),k)-u)+8*(a*f)**0.5*(1-sn(u,k))+2*L1*f
 
-def Energy_Recip(alpha):
-    return 8*(a1*f)**0.5*(scipy.special.ellipeinc(am(x,alpha),alpha**2)-x+0.5*x*alpha**2)+8*(a*f)**0.5*(1-alpha*sn(x,alpha))+2*L1*f
-    
-
-def Energy(k):
-    u=x/k
-    return 4*(a1*f)**0.5*(1/k)*(2*k**2*sn(u,k)*cn(u,k)/dn(u,k)-x/k)+8*(a*f)**0.5*(1-sn(u,k))+2*L1*f
-
-
-# this function's zero is the minimum of the elastic energy, i.e it is the first derivative of the energy
-def function(k):
+# this function's zero is the minimum of the elastic energy, i.e it is realted to  the first derivative of the energy
+def function_floppy(k,a,a1,L1,r,f):
+    x = L1*f**0.5/(2*(a1)**0.5)
     u = x/k
     return k*cn(u,k)/dn(u,k)-r**0.5
 
-# another formulation of the energy, this only has dependence on k in the sn and sn^2 terms
-def Energy2(k):
-    u = x/k
-    return 8*(a*f)**0.5*(1-sn(u,k)) + 8*(a1*f)**0.5*sn(u,k)+2*L1*f
 
 # linear approximation to the energy in the case that x is small
-def Energy_Linear(k):
+def Energy_Linear_floppy(a,a1,L1,r,f):
+    r=a1/a
     return 8*(a*f)**0.5 + 2*L1*f*(1-(1/r))
 
-def Energy_Quadratic(k):
+
+def Energy_Quadratic_floppy(a,a1,L1,r,f):
+    r=a1/a
     return 8*(a*f)**0.5 + 2*L1*f*(1-(1/r))-(1/6)*(L1**3*a*f**2/(a1**2))*(1-(1/r))
 
-def Energy_Homoclinic(k):
+
+def Energy_Cubic_floppy(a,a1,L1,r,f):
+    r=a1/a
+    return 8*(a*f)**0.5 + 2*L1*f*(1-(1/r))-(1/6)*(L1**3*a*f**2/(a1**2))*(1-(1/r))+(1/72)*(L1**5*f**3)*(a**2/a1**4)*(1-(1/r))
+
+def Energy_Homoclinic_floppy(a,a1,L1,r,f):
     return 8*(a*f)**0.5*(1-np.tanh(x))+8*(a1*f)**0.5*np.tanh(x)
+
+
+def Energy_bent(a,a1,L1,r,f,theta0):
+    return 8*(a*f)*(1-np.sin(theta0/4))
+
+
+
+def Energy_bent_floppy(k,a,a1,L1,r,f,theta0):
+    x = L1*f**0.5/(2*(a1)**0.5)
+    u=x/k+F(theta0/4,k)
+    return 4*(a1*f)**0.5*(1/k)*(2*E(am(u,k),k)-2*E(theta0/4,k)-x/k)+8*(a*f)**0.5*(1-sn(u,k))+2*L1*f
+
+
+# this function's zero is the minimum of the elastic energy, i.e it is realted to  the first derivative of the energy
+def function_bent_floppy(k,a,a1,L1,r,f,theta0):
+    x = L1*f**0.5/(2*(a1)**0.5)
+    u = x/k
+    return k*cn(u,k)/dn(u,k)-r**0.5
+
+
+# linear approximation to the energy in the case that x is small
+def Energy_Linear_bent_floppy(k,a,a1,L1,r,f,theta0):
+    r=a1/a
+    return 8*(a*f)**0.5 + 2*L1*f*(1-(1/r)) - 2*(a1*f)**0.5*theta0
+
     
 
 # this function tests whether two functions, fun1 and fun2, are equivalent on some interval with values
-# array, to within some tolerance tol. Output is True is equivalent and False if not.
+# array, to within some tolerance tol. Output is True if equivalent and False if not.
 def are_equivalent(fun1,fun2,array,tol):
     per = True
     for val in array:
@@ -95,53 +134,96 @@ def are_equivalent(fun1,fun2,array,tol):
 
 
 
-k_num = minimize(Energy_Full,r**0.5).x[0]
-E_num = minimize(Energy_Full,r**0.5).fun
-
-k_recip = 1/(minimize(Energy_Recip,r**0.5).x[0])
-E_recip = minimize(Energy_Recip,r**0.5).fun[0]
-
-
-k_exact = fsolve(function,r**0.5)[0]
-Energy_exact = Energy(k_exact)
-Energy_full = Energy_Full(k_exact)
-Energy_dog = Energy2(k_exact)
-
+k_num = minimize(lambda k: Energy_floppy(k,a,a1,L1,r,f),r**0.5).x[0]
+E_num = minimize(lambda k: Energy_floppy(k,a,a1,L1,r,f),r**0.5).fun
+k_exact = fsolve(lambda k: function_floppy(k,a,a1,L1,r,f),r**0.5)[0]
+Energy_Exact = Energy_floppy(k_exact,a,a1,L1,r,f)
 k_lin = r**0.5
-E_lin = Energy_Linear(k_exact)
-E_quad = Energy_Quadratic(k_exact)
-E_homo = Energy_Homoclinic(k_exact)
+E_lin = Energy_Linear_floppy(a,a1,L1,r,f)
+E_quad = Energy_Quadratic_floppy(a,a1,L1,r,f)
+E_cub = Energy_Cubic_floppy(a,a1,L1,r,f)
+E_homo = Energy_Homoclinic_floppy(a,a1,L1,r,f)
 
-test = are_equivalent(Energy_Full, Energy, np.linspace(0.01,1), 0.1)
-k_vals = np.linspace(0.3,1,100)
-E1vals = []
-E2vals = []
-for val in k_vals:
-    E1vals.append(Energy_Full(val))
-    E2vals.append(Energy(val))
 
-plt.plot(k_vals,E1vals)
-plt.plot(k_vals,E2vals)
+
+def Energy_bongoboi(c,k,a,a1,L1,r,f):
+    return np.abs(8*(a*f)**0.5+2*L1*f*(1-(1/r))*1/(1+(a*L1**2*f/(c*a1**2)))-Energy_floppy(k,a,a1,L1,r,f))
+    
+
+
+
+a1vals = np.linspace(0.1,1,25)
+
+c_vals=[]
+for a1val in a1vals:
+    a1 = a1val
+    fun = lambda k: function_floppy(k,a,a1,L1,r,f)
+    r=a1/a
+    k_exact = fsolve(fun,r**0.5)[0]
+    Energy_Exact = Energy_floppy(k_exact,a,a1,L1,r,f)
+    fun2 = lambda c: Energy_bongoboi(c,k_exact,a,a1,L1,r,f)
+    c_choi = minimize(fun2,15).x[0]
+    c_vals.append(c_choi) 
+
+
+def func(x,m,n):
+    return 12+m/(x**n)
+
+opt = curve_fit(func, a1vals, c_vals)
+
+mopt=opt[0][0]
+nopt=opt[0][1]
+
+a1vals = a1vals[:-1]
+c_vals = c_vals[:-1]
+
+
+c_theory_vals =[] 
+for a1val in a1vals:
+    c_theory_vals.append(func(a1val, mopt, nopt))
+
+plt.plot(a1vals,c_vals)
+plt.plot(a1vals,c_theory_vals)
 plt.show()
 
 
-tonk = Energy_Recip(1/k_exact)
+
+
+
+
+k_bent_flop_num = minimize(lambda k: Energy_bent_floppy(k,a,a1,L1,r,f,theta0),r**0.5).x[0]
+E_bent_flop_num = minimize(lambda k: Energy_bent_floppy(k,a,a1,L1,r,f,theta0),r**0.5).fun
+E_bent_flop = Energy_bent_floppy(k_exact,a,a1,L1,r,f,theta0)
+E_bent_flop_lin = Energy_Linear_bent_floppy(k_exact,a,a1,L1,r,f,theta0)
 
 
 print("Elliptic Modulus (Exact)", k_exact)
 print("Elliptic Modulus (Numerical)", k_num)
 print("Elliptic Modulus (Linear)", k_lin)
-
 print("\n")
-
-print("Energy (full)", Energy_full)
-print("Energy (Exact)", Energy_exact)
+print("Energy (Exact)", Energy_Exact)
 print("Energy (Numerical)", E_num)
 print("Energy (Linear)", E_lin)
 print("Energy (Quadratic)", E_quad)
 print("Energy (Homoclinic)", E_homo)
+print("\n")
+
+print("Elliptic Modulus Bent (Numerical)", k_bent_flop_num)
+print("\n")
+print("Energy Bent Flop (Exact)", E_bent_flop)
+print("Energy Bent Flop (Numerical)", E_bent_flop_num)
+print("Energy Bent Flop (Linear)", E_bent_flop_lin)
 
 
+
+
+
+# TEP data
+tenbp = [3.333,6.389,10,0]
+fourbp = [3.611,4.722,6.111,5.278]
+twobp = [1.667,2.222,1.778,3.333]
+onebp = [2.778,2.222,1.389,1.667]
+force = [1,2,3,4]
 
 
 
@@ -163,63 +245,20 @@ s2max=L1/2
 def sech(x):
     return (np.cosh(x))**(-1)
 
+def x(k,L,lam,s):
+    return s*((2/k**2)-1)-(2*lam/k)*scipy.special.ellipeinc(am(s/(k*lam),k),k**2)
 
-def h(lam,lam1,L1):
-    return 2*lam1*(1-sech(L1/(lam1)))-2*lam*(1-sech(L1/(lam)))
+def y(k,L,lam,s):
+    return (2*lam/k)*dn(s/(k*lam),k)
 
 
-s_flop = np.linspace(smin,smax,npoints)      # arclength range for inhomogeneity
-s = np.linspace(s2min,s2max,npoints)         # arclength range for posiitve homogenous region
+sright = np.linspace(L1/2,L/2,npoints)
+sleft = np.linspace(-L/2,-L1/2,npoints)
+s1 = np.linspace(-L1/2,L1/2,npoints)
 
-x_flop = [None]*npoints                      # x values for floppy segment
-y_flop = [None]*npoints                      # y values for floppy segment
-for i in range(0,npoints):
-    y_flop[i] = 2*lam1*((sech((s_flop[i]/lam1)))-1)
-    x_flop[i] = s_flop[i]-2*lam*np.tanh(s_flop[i]/lam1)
-    
-x = [None]*npoints
-y = [None]*npoints
-for i in range(0,npoints):
-    y[i] = 2*lam1*(sech((s[i]/lam))-1)+h(lam,lam1,L)
-    x[i] = s[i]-2*lam*np.tanh(s[i]/lam)
-    
-del_list=[]
-end_x = x_flop[0]
-end_y = y_flop[0]
-for i in range(0,npoints):
-    if (-end_x<x[i]<end_x) and (y[i]>end_y):
-        del_list.append(i)
-        x[i]=0
-        y[i]=0
 
-        
-print(x_flop[0],y_flop[0])
-print(x_flop[-1],y_flop[-1])
-
-xx = [None]*del_list[0]         # x values for hom loop with floppy region removed
-yy = [None]*del_list[0]         # y values for hom loop with floppy region removed
-for i in range(0,del_list[0]):
-    xx[i] = x[i]
-    yy[i] = y[i]
-    
-xx_flop = [None]*(npoints-del_list[-1]-1)
-yy_flop = [None]*(npoints-del_list[-1]-1)
-for i in range(0,npoints-del_list[-1]-1):
-    xx_flop[i] = x[del_list[-1]+i+1]
-    yy_flop[i] = y[del_list[-1]+i+1]
-    
-    
-plt.plot(xx,yy, color='blue')
-plt.plot(-xx,yy,color='blue')
-plt.plot(x_flop[0],y_flop[0],color='red',marker='x')
-plt.plot(-x_flop[0],y_flop[0],color='red',marker='x')
-plt.plot(xx_flop,yy_flop,color='orange')
+plt.plot(x(0.8,L1,lam1,s1),y(0.8,L1,lam1,s1)+(y(1,L1,lam,L1/2)-y(0.8,L1,lam1,L1/2)),color='red')
+plt.plot(x(1,L,lam,sleft),y(1,L,lam,sleft),color='blue')
+plt.plot(x(1,L,lam,sright),y(1,L,lam,sright),color='blue')
 plt.show()
-  
-
-
-
-
-
-
 
