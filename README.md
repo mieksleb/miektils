@@ -1,10 +1,22 @@
-Welcome to MIEKTILS, a collection of utlitities for DNA simulations. Most scripts (if they work) are compatible with oxDNA simulations.
+# Miektils
 
-MIEKTILS includes PAKTEP which consists of post-processing tools built in Fortran90 including Twist, Writhe, Persistence Length and Plectoneme position.
+Welcome to Miektils. Miektils is a collection of utilities for DNA simulations, designed specifically for oxDNA coarse-grained simulations and all-atom systems from Amber. Submodules include PAKTEP, Ambermiek, oxdna and WLC.
 
-AMBERMIEK is a collection of tools used for generating files for all atom simulations of dsDNA in Amber.
 
-Other oxDNA related python scripts can be found in the oxDNA directory.
+## PAKTEP
 
-Finally WLC is a series of python scripts which calculate the energy and plot the parametric forms of homogeneous and inhomogeneous elastica. 
+PAKTEP is FORTRAN90 code which calculates the Twist, Writhe, Plectoneme position and Persistence Length of DNA (and potentially other macromolecules). PAKTEP utilises spline fitting routines and boasts competitive performance for long trajectory processing.
 
+
+
+## Ambermiek
+
+Ambermiek is a file generation system designed specifically for creating linear and circular dsDNA simulation files. Circular DNA can be created with an arbirary Linking number defecit, a toplogical constraint on the DNA related to its "excess-twist".
+
+## oxdna
+
+Contains python and bash scripts which generate and post-process oxdna simulations including minicircle generation and twist/writhe calculations.
+
+## WLC
+
+This directory includes python scripts which generate piecewise elatica configurations and energies, as well as numerical scripts for 3D elasticae.
