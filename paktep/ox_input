@@ -1,0 +1,6 @@
+type = oxdna
+topology = test/circle_300-Lk7.top
+conf = test/circle_300-Lk7.dat
+twist_writhe = 1
+plectoneme_pos = 0
+persistence_length = 0

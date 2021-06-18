@@ -19,7 +19,7 @@ subroutine neme_hunter_conf(conf_file_name,top_file_name,neme_pos,neme_len,step)
   real :: neme_len
   
   ! call reader to load in positions
-  call reader(conf_file_name,top_file_name,step,bp,x1,y1,z1,x2,y2,z2,reverse.eqv..False.,circular,energy_out)
+  call oxdna_reader(conf_file_name,top_file_name,step,bp,x1,y1,z1,x2,y2,z2,reverse.eqv..False.,circular,energy_out)
 
   ! generate a linear sequence to feed as independent variable in spline fitting procedure
  if (circular.eqv..True.) then

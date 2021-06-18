@@ -1,12 +1,9 @@
 module spline
   implicit none
-
-
 contains
 
-
 ! input m data points (x,y) and returns spline object t,c,k,n. If data is periodic then set circular=.True.
-subroutine get_spline(x,y,t,c,k,n,m,circular,reverse,ier)
+subroutine get_spline(x,y,t,c,k,n,m,circular,ier)
 
   real :: xb,xe,s=0,fp
   integer :: iopt=0,m,k,nest,n,ier,i
@@ -33,27 +30,28 @@ subroutine get_spline(x,y,t,c,k,n,m,circular,reverse,ier)
   allocate(wrk(lwrk))
   allocate(iwrk(nest))
   allocate(y_rev(m))
-  
 
+!  REVERSE LOGICAL REMOVED, for now I will comment out redundant lines until I am sure it can be deleted
+ 
   ! if a strand is reversed, we must reverse the strand first and then ensure x(1)=x(m)
   ! doing to the other way round will give a different answer
-  if (circular.eqv..True.) then
-    if (reverse.eqv..True.) then
-      do i=1,m-1 ! only loop to the penultimate element before reversal, as array is now one longer!
-        y_rev(i)=y(m-i)
-      end do
-    else
-    end if
-    y_rev(m)=y(1) ! now the array is reversed, we insert the first element at the end
-    y(m)=y_rev(1) ! for unreversed array, we do the same
-  else
-    if (reverse.eqv..True.) then
-      do i=1,m ! now strand is not circular, we can simply reverse it!
-        y_rev(i)=y(m+1-i)
-      end do
-    else
-    end if
-  end if
+!  if (circular.eqv..True.) then
+!    if (reverse.eqv..True.) then
+!      do i=1,m-1 ! only loop to the penultimate element before reversal, as array is now one longer!
+!        y_rev(i)=y(m-i)
+!      end do
+!    else
+!    end if
+!    y_rev(m)=y(1) ! now the array is reversed, we insert the first element at the end
+!    y(m)=y_rev(1) ! for unreversed array, we do the same
+!  else
+!    if (reverse.eqv..True.) then
+!      do i=1,m ! now strand is not circular, we can simply reverse it!
+!        y_rev(i)=y(m+1-i)
+!      end do
+!    else
+!    end if
+!  end if
       
   ! use unit weights uniformly spread
   do i=1,m
@@ -65,20 +63,25 @@ subroutine get_spline(x,y,t,c,k,n,m,circular,reverse,ier)
   
 
   ! now we call the main routines from CURFIT found in dierckx library
-  if (circular.eqv..False.) then
-    if (reverse.eqv..True.) then
-      call curfit(iopt,m,x,y_rev,w,xb,xe,k,s,nest,n,t,c,fp,wrk,lwrk,iwrk,ier)
-    else
-      call curfit(iopt,m,x,y,w,xb,xe,k,s,nest,n,t,c,fp,wrk,lwrk,iwrk,ier)
-    end if
-  else
-    if (reverse.eqv..True.) then
-      call percur(iopt,m,x,y_rev,w,k,s,nest,n,t,c,fp,wrk,lwrk,iwrk,ier)
-    else 
-      call percur(iopt,m,x,y,w,k,s,nest,n,t,c,fp,wrk,lwrk,iwrk,ier)
-    end if
+!  if (circular.eqv..False.) then
+!    if (reverse.eqv..True.) then
+!      call curfit(iopt,m,x,y_rev,w,xb,xe,k,s,nest,n,t,c,fp,wrk,lwrk,iwrk,ier)
+!    else
+!      call curfit(iopt,m,x,y,w,xb,xe,k,s,nest,n,t,c,fp,wrk,lwrk,iwrk,ier)
+!    end if
+!  else
+!    if (reverse.eqv..True.) then
+!      call percur(iopt,m,x,y_rev,w,k,s,nest,n,t,c,fp,wrk,lwrk,iwrk,ier)
+!    else 
+!      call percur(iopt,m,x,y,w,k,s,nest,n,t,c,fp,wrk,lwrk,iwrk,ier)
+!    end if
 
+  if (circular.eqv..False.) then
+      call curfit(iopt,m,x,y,w,xb,xe,k,s,nest,n,t,c,fp,wrk,lwrk,iwrk,ier)
+  else
+      call percur(iopt,m,x,y,w,k,s,nest,n,t,c,fp,wrk,lwrk,iwrk,ier)
   end if
+
   if (ier.eq.10) then
      print *,"something went wrong, spline conditions not met"
   else

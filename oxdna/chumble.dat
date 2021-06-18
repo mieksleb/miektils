@@ -1,0 +1,10 @@
+MD on the water and ions about the DNA
+ &cntrl
+	ntf=2, ntc=2, ntb=0, ,cut=1000.,
+	nstlim=50000, dt=0.002, ntpr=5000,
+	ntwx=5000,ntwe=5000,ntwr=5000,
+	temp0=300, ntt=3,gamma_ln=0.01,
+	imin=0, irest=1, ntx=5,
+	igb=8, gbsa=0, s0.2,
+	ntr=0,
+ &end

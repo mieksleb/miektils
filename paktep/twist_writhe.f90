@@ -1,48 +1,50 @@
 module twist_writhe_fortran
-  use readers
   use spline
   implicit none
 
-!  character :: file_name*20
-!  real :: twist_integral=0.0,writhe_integral=0.0
-!  read(*,*) file_name
-!  call twist_writhe_main(file_name,twist_integral,writhe_integral)
-!  write(*,*) twist_integral, writhe_integral
-
 contains
 
-subroutine twist_writhe_conf(conf_file_name,top_file_name,twist_integral,writhe_integral)
+subroutine twist_writhe_xyz(bp,x1,y1,z1,x2,y2,z2,twist_integral,writhe_integral,circular)
+  ! This takes in the 2 sets of vectors each of length bp (or bp+1 if circular)
+  ! x1,y1,z1 are lists of the components of the vectors which describe the backbone of strand1
+  ! x2,y2,z2 are the components of the the list of vectors which descrive the backbone of strand2
+  ! reverse is a logical which is True if one strand is to be reversed and False otherwise
 
   real :: twist_integral,writhe_integral
-  real, dimension(:), allocatable :: x1,y1,z1,x2,y2,z2,tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
-  real, dimension(:), allocatable :: dum_x1
-  integer :: bp,npoints=1000,nx1,ny1,nz1,nx2,ny2,nz2,k=3,ier,i,step
-  logical :: circular,reverse=.False.,energy_out
+  real, dimension(:), allocatable :: dum_x1,x1,y1,z1,x2,y2,z2
+  real, dimension(:), allocatable   :: tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
+  integer :: bp,npoints=1000,nx1,ny1,nz1,nx2,ny2,nz2,k=3,ier,i,step,length
+  logical :: circular,reverse,energy_out,reverse1=.False.
   character :: conf_file_name*20,top_file_name*20
 
-  ! call reader to load in positions
-  call reader(conf_file_name,top_file_name,step,bp,x1,y1,z1,x2,y2,z2,reverse.eqv..False.,circular,energy_out)
+
+  if (circular.eqv..False.) then
+    length = bp
+  else
+    length = bp+1
+  end if
 
   ! generate a linear sequence to feed as independent variable in spline fitting procedure
-  allocate(dum_x1(bp))
-  do i=1,bp
+  allocate(dum_x1(length))
+  do i=1,length
     dum_x1(i)=i-1
   end do
 
   ! calculate the splines of the x,y,z postions for both strands
-  call get_spline(dum_x1,x1,tx1,cx1,k,nx1,bp,circular,reverse,ier)
-  call get_spline(dum_x1,y1,ty1,cy1,k,ny1,bp,circular,reverse,ier)
-  call get_spline(dum_x1,z1,tz1,cz1,k,nz1,bp,circular,reverse,ier)
-  call get_spline(dum_x1,x2,tx2,cx2,k,nx2,bp,circular,.True.,ier)
-  call get_spline(dum_x1,y2,ty2,cy2,k,ny2,bp,circular,.True.,ier)
-  call get_spline(dum_x1,z2,tz2,cz2,k,nz2,bp,circular,.True.,ier)
+  ! by default we retain the direction of one spline, but allow for the second one to be reversed subject to the reverse logical
+  call get_spline(dum_x1,x1,tx1,cx1,k,nx1,length,circular,ier)
+  call get_spline(dum_x1,y1,ty1,cy1,k,ny1,length,circular,ier)
+  call get_spline(dum_x1,z1,tz1,cz1,k,nz1,length,circular,ier)
+  call get_spline(dum_x1,x2,tx2,cx2,k,nx2,length,circular,ier)
+  call get_spline(dum_x1,y2,ty2,cy2,k,ny2,length,circular,ier)
+  call get_spline(dum_x1,z2,tz2,cz2,k,nz2,length,circular,ier)
 
   ! call main subroutine 
   call twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx2,ty2,cy2,ny2,tz2,&
                                             &cz2,nz2,circular,twist_integral,writhe_integral)
 
 
-end subroutine twist_writhe_conf
+end subroutine twist_writhe_xyz
 
 
 
@@ -53,7 +55,7 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   real, dimension(:), allocatable   :: tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
   integer                           :: ii,jj,srange,ier,k=3,nx1,ny1,nz1,nx2,ny2,nz2,bp,nuxx,nuyy,nuzz
   integer                           :: npoints,m,nnuxx,nnuyy,nnuzz,nsx,nsy,nsz
-  logical                           :: circular,reverse=.False.
+  logical                           :: circular,reverse
   real                              :: twist_integral,writhe_integral
   real                              :: bpinc
   real                              :: tsp,tsp2,delta_s,ds
@@ -66,6 +68,7 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   real, dimension(:), allocatable   :: diff,tuxx,tuyy,tuzz,cnuxx,cnuyy,cnuzz,csx,csy,csz,cuxx,cuyy,cuzz
   real, dimension(:), allocatable   :: tnuxx,tnuyy,tnuzz,tsx,tsy,tsz,ss,contour,bpi
   real, dimension(:), allocatable   :: sx1,sy1,sz1,sx2,sy2,sz2,snuxx,snuyy,snuzz,dum_x2
+
 
   m = npoints
 
@@ -125,11 +128,11 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
     dum_x2(ii)=ii-1
   end do
 
+
   ! now we compute the spline objects t,c,k,n of the midpoint spline 
-  call get_spline(contour,m1xx,tsx,csx,k,nsx,npoints,circular,reverse,ier)
-  call get_spline(contour,m1yy,tsy,csy,k,nsy,npoints,circular,reverse,ier)
-  call get_spline(contour,m1zz,tsz,csz,k,nsz,npoints,circular,reverse,ier)
-  
+  call get_spline(contour,m1xx,tsx,csx,k,nsx,npoints,circular,ier)
+  call get_spline(contour,m1yy,tsy,csy,k,nsy,npoints,circular,ier)
+  call get_spline(contour,m1zz,tsz,csz,k,nsz,npoints,circular,ier)
   allocate(xx(npoints))
   allocate(yy(npoints))
   allocate(zz(npoints))
@@ -153,9 +156,9 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   uyy_bpi = sy2-sy1
   uzz_bpi = sz2-sz1
   ! we then the spline of this normal and evaluate it
-  call get_spline(contour,uxx_bpi,tuxx,cuxx,k,nuxx,npoints,circular,reverse,ier)
-  call get_spline(contour,uyy_bpi,tuyy,cuyy,k,nuyy,npoints,circular,reverse,ier)
-  call get_spline(contour,uzz_bpi,tuzz,cuzz,k,nuzz,npoints,circular,reverse,ier)
+  call get_spline(contour,uxx_bpi,tuxx,cuxx,k,nuxx,npoints,circular,ier)
+  call get_spline(contour,uyy_bpi,tuyy,cuyy,k,nuyy,npoints,circular,ier)
+  call get_spline(contour,uzz_bpi,tuzz,cuzz,k,nuzz,npoints,circular,ier)
   allocate(uxx(npoints))
   allocate(uyy(npoints))
   allocate(uzz(npoints))
@@ -183,9 +186,9 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   
 
   ! we now do a spline fit to the components of uu
-  call get_spline(ss,snuxx,tnuxx,cnuxx,k,nnuxx,npoints,circular,reverse,ier)
-  call get_spline(ss,snuyy,tnuyy,cnuyy,k,nnuyy,npoints,circular,reverse,ier)
-  call get_spline(ss,snuzz,tnuzz,cnuzz,k,nnuzz,npoints,circular,reverse,ier)
+  call get_spline(ss,snuxx,tnuxx,cnuxx,k,nnuxx,npoints,circular,ier)
+  call get_spline(ss,snuyy,tnuyy,cnuyy,k,nnuyy,npoints,circular,ier)
+  call get_spline(ss,snuzz,tnuzz,cnuzz,k,nnuzz,npoints,circular,ier)
   ! evalauate thje derivative of this new spline
   allocate(duxx(npoints))
   allocate(duyy(npoints))

@@ -8,32 +8,58 @@ Created on Thu Jan 16 14:13:05 2020
 import sys
 import base
 import numpy as np
-import tools
 import readers
-from tools import multidet,discrete_dbl_int
+import scipy
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  
-
-
-
-
-conf = "miekbin/circle_300-Lk7.dat"
-top = "miekbin/circle_300-Lk7.top"
-
+conf = sys.argv[1]
+top = sys.argv[2]
 
 
 l = readers.LorenzoReader(conf, top)
 s = l.get_system()
 
+def norm(vec):
+    return vec / np.sqrt(np.dot(vec,vec))
+
+def get_bb_spline(strand, reverse = False, per = True):
+    """
+    return a cartesian spline that represents a fit through the backbone of a duplex
+
+    args:
+    strand: base.Strand object
+    """
+
+    from scipy.interpolate import splev, splrep
+
+ 
+    bb_pos = []
+    for nuc in strand._nucleotides:
+        bb_pos.append(nuc.get_pos_back())
+    if reverse:
+        bb_pos.reverse()
+    if strand._circular:
+        if reverse:
+            bb_pos.append(strand._nucleotides[-1].get_pos_back())
+        else:
+            bb_pos.append(strand._nucleotides[0].get_pos_back())
+ 
+    # interpolate bbms by interpolating each cartesian co-ordinate in turn
+    xx = [vec[0] for vec in bb_pos]
+    yy = [vec[1] for vec in bb_pos]
+    zz = [vec[2] for vec in bb_pos]
+    # NB s = 0 forces interpolation through all data points
+    spline_xx = splrep(range(len(xx)), xx, k = 3, s = 0, per = strand._circular)
+    spline_yy = splrep(range(len(yy)), yy, k = 3, s = 0, per = strand._circular)
+    spline_zz = splrep(range(len(zz)), zz, k = 3, s = 0, per = strand._circular)
+    return [spline_xx, spline_yy, spline_zz], (0, len(xx)-1)
 
 strand1 = s._strands[0]
 strand2 = s._strands[1]
 
 bp = len(strand1._nucleotides)
 
-spline1 = tools.get_bb_spline(strand1)
-spline2 = tools.get_bb_spline(strand2, reverse = True)   
+spline1 = get_bb_spline(strand1)
+spline2 = get_bb_spline(strand2, reverse = True)   
 
 def get_twist_writhe(spline1, spline2, npoints = 1000, circular = False, integral_type = "simple"):
     
@@ -123,6 +149,7 @@ def get_twist_writhe(spline1, spline2, npoints = 1000, circular = False, integra
     suzz = scipy.interpolate.splrep(contour_len, uzz_bpi, k = 3, s = 0, per = circular)
     
 
+
     # evaluate the normal vector spline as a function of contour length
     uxx = scipy.interpolate.splev(ss, suxx)
     uyy = scipy.interpolate.splev(ss, suyy)
@@ -135,7 +162,7 @@ def get_twist_writhe(spline1, spline2, npoints = 1000, circular = False, integra
         uu[ii] = np.array([uxx[ii], uyy[ii], uzz[ii]])
         uu[ii] = uu[ii] - np.dot(tt[ii], uu[ii]) * tt[ii]
         # the normal vector should be normalised
-        uu[ii] = tools.norm(uu[ii])
+        uu[ii] = norm(uu[ii])
         
         
     # and finally we need the derivatives of that vector u(s). It takes a bit of work to get a spline of the normalised version of u from the unnormalised one
@@ -152,13 +179,55 @@ def get_twist_writhe(spline1, spline2, npoints = 1000, circular = False, integra
     for ii in list(range(len(ss))):
         duu[ii] = np.array([duxx[ii], duyy[ii], duzz[ii]])
 
+    
     ds = float(contour_len[-1] - contour_len[0]) / (npoints - 1)
     # do the integration w.r.t. s
  
+    
+    def multidet(u,v,w):
+        d=np.empty(3)
+        d=\
+        u[0]*(v[1]*w[2]-v[2]*w[1])+\
+        u[1]*(v[2]*w[0]-v[0]*w[2])+\
+        u[2]*(v[0]*w[1]-v[1]*w[0])  # 14 operations / det
+        return d
+
+    
+    
+    # now for the integration which we use numba fastmath capabilities for speed
+    def discrete_dbl_int(tt, uu, duu, xx, yy, zz, dx, dy, ss, circular = circular):
+        if circular:
+            srange = range(len(ss)-1)
+        else:
+            srange = range(len(ss))
+        twist_integral = 0
+        writhe_integral = 0
+        for ii in srange:
+            triple_scalar_product = multidet(tt[ii], uu[ii], duu[ii])
+            twist_integral += triple_scalar_product 
+            for jj in srange:
+                # skip ii=jj and use symmetry in {ii, jj}
+                if ii > jj:
+                    diff = np.array([xx[ii]-xx[jj], yy[ii] - yy[jj], zz[ii] - zz[jj]])
+                    diff_mag = np.sqrt(np.dot(diff, diff))
+                    diff_frac = diff / (diff_mag ** 3)
+                    triple_scalar_product = multidet((tt[ii]), tt[jj], diff_frac)
+                    writhe_integral += triple_scalar_product
+            
+        twist_integral *= dx / (2 * np.pi)
+        writhe_integral *= dx * dy / (2 * np.pi) # multiplied by 2 because we exploited the symmetry in {ii, jj} to skip half of the integral
+        return twist_integral, writhe_integral
+    
+    
     twist, writhe = discrete_dbl_int(tt, uu, duu, xx, yy, zz, ds, ds, ss, circular = True)
     
     return twist, writhe
     
+    
 
 twist, writhe = get_twist_writhe(spline1, spline2)
 boyo = twist + writhe 
+
+print(twist, "twist")
+print(writhe, "writhe")
+
