@@ -20,13 +20,15 @@ from random import choice
 from scipy.interpolate import splev, splrep
 
 
+def rot(B,A,theta):  #rotates vector B about axis A using Euler-Rodrigues formula
+    return A*(np.dot(A,B))+np.cos(theta)*np.cross((np.cross(A, B)), A)+np.sin(theta)*(np.cross(A,B))
 
 speedup = True
 
 if speedup:
-    from tools_fast_math import get_twist_writhe,multidet,norm
+    from tools_fast_math import get_twist_writhe,multidet,norm,rot
 else:
-    from tools import multidet,norm,get_twist_writhe
+    from tools import multidet,norm,get_twist_writhe,rot
 
 
 
@@ -69,7 +71,7 @@ Parameters and checks
 
 '''
 func = lambda t: right_trefoil(t)
-bp = 300
+bp = 10212
 circular = True         # circular boolean is true when structure is closed
 periodic = True         # periodic boolean is true when x(n)=x(1), i.e. the final position is equal to the first
 sequence_input = False  # sequence = True means a sequence file will be given
@@ -82,6 +84,9 @@ base_length = 0.7                   # distance from backbone to base
 centre_line = []
 pitch = 10.36                       # helical pitch of dsDNA
 npoints = bp
+min_rat = 0.3
+maj_rat = 0.7
+min_deg = 20*np.pi/180 #minor groove rotation angle
 
 Lk0 = bp/pitch # this is the relaxed linking number, deltaLk=0
 deltaLk = 0
@@ -129,6 +134,7 @@ def generate(bp,centre_line,tan_vals,theta,v1):
     # skip first base pairs
     for i in range(1,bp):
         
+        
         v2 = v1
         # remove component of v2 in direction of tan
         v2 -= v2*(np.dot(v2,tan_vals[i]))
@@ -159,23 +165,34 @@ def generate(bp,centre_line,tan_vals,theta,v1):
 
  
     
-def get_spline(bb_pos,reverse):
+def pos_2_spline(pos,circular,reverse = False):
     if reverse:
-        bb_pos.reverse()
+        pos.reverse()
     if circular:
         if reverse:
-            bb_pos.append(bb_pos[-1])
+            pos.append(pos[-1])
         else:
-            bb_pos.append(bb_pos[0])
+            pos.append(pos[0])
     # interpolate bbms by interpolating each cartesian co-ordinate in turn
-    xx = [vec[0] for vec in bb_pos]
-    yy = [vec[1] for vec in bb_pos]
-    zz = [vec[2] for vec in bb_pos]
+    xx = [vec[0] for vec in pos]
+    yy = [vec[1] for vec in pos]
+    zz = [vec[2] for vec in pos]
     # NB s = 0 forces interpolation through all data points
     spline_xx = splrep(range(len(xx)), xx, k = 3, s = 0, per = circular)
     spline_yy = splrep(range(len(yy)), yy, k = 3, s = 0, per = circular)
     spline_zz = splrep(range(len(zz)), zz, k = 3, s = 0, per = circular)
     return [spline_xx, spline_yy, spline_zz], (0, len(xx)-1)
+
+def evaluate_spline(spline,domain):
+    vec_list = []
+    splinex,spliney,splinez = spline[0]
+    xx = splev(domain, splinex)
+    yy = splev(domain, spliney)
+    zz = splev(domain, splinez)
+    for i in range(len(xx)):
+        vec_list.append(np.array([xx[i],yy[i],zz[i]]))
+    return vec_list
+    
 
 comp_sequence1 = []
 for base in sequence:
@@ -191,10 +208,7 @@ for base in sequence:
 comp_sequence = []
 for i in range(bp):
     comp_sequence.append(comp_sequence1[bp-1-i])
-    
-def rot(vec,axis,theta):
-    # rotates a vector vec about axis by counter-clockwise angle theta
-    return axis*(np.dot(vec,axis))*(1-np.cos(theta))+(np.cross(axis,vec))*np.sin(theta)+vec*np.cos(theta)
+
 
 if periodic == True:
     length = bp+1
@@ -215,6 +229,8 @@ We begin with a general configuration describing the centre line of the dsDNA
 
 We then rescale such that the contour length matches the expected length for a sequence of the length
 '''
+
+
 
 n=1
 io = 1
@@ -242,9 +258,12 @@ while io!=3:
     n = L/total_len
     io+=1
 
-
-
 box = max(xrange,yrange,zrange)
+
+
+# Now we need to add in the major minor grooves
+
+
 
 
 # if the structure is circular and periodic, then we remove the last element of the centre_lines
@@ -271,6 +290,8 @@ v10 = v1    # save the very first vector
 phi = 0
 
 
+
+
 '''
 This part of the code ensures that the configuration has the correct linking number
 '''
@@ -294,8 +315,8 @@ for j in range(0,2):
     # skip first base pairs
     strand1pos,strand2pos,normals1,normals2,v2 = generate(bp, centre_line, tan_vals, theta, v1)
     
-    spline1 = get_spline(strand1pos,reverse=False)
-    spline2 = get_spline(strand2pos,reverse=False)
+    spline1 = pos_2_spline(strand1pos,circular,reverse=False)
+    spline2 = pos_2_spline(strand2pos,circular,reverse=False)
     twist, writhe = get_twist_writhe(spline1, spline2, npoints, circular = True, integral_type = "simple")
     Lk = twist + writhe
     print('twist is '+ str(twist))
@@ -305,6 +326,8 @@ for j in range(0,2):
     deltaLk_actual = Lk - Lk0
     difference = deltaLk_actual-deltaLk
     phi = -difference*2*np.pi/bp
+    
+
     
     
 # The structure now has the correct linking number! We now need to check the
@@ -318,6 +341,8 @@ print(theta)
 delta_ang = last_ang - theta
 delta_ang_pbp = delta_ang/bp # chnage in angle per base pair
 theta += delta_ang_pbp
+
+expected_twist = theta*bp/(2*np.pi)
     
 
 
@@ -339,9 +364,40 @@ strand1pos,strand2pos,normals1,normals2,v2 = generate(bp, centre_line, tan_vals,
 
 
 
-spline1 = get_spline(strand1pos,reverse=False)
-spline2 = get_spline(strand2pos,reverse=False)
-twist, writhe = get_twist_writhe(spline1, spline2, npoints = 1000, circular = True, integral_type = "simple")
+'''
+Now we add the major minor grooving
+
+This involves rotating the back_bone positions about the centre of nucleotides by 20 degrees
+
+'''
+# first we get the centre of mass of the base pairs
+
+com = [(strand1pos[i]+strand2pos[i])/2 for i in range(0,len(strand1pos))]
+
+ 
+strand1pos_m = []
+strand2pos_m = []
+normals1_m = []
+normals2_m = []
+for i in range(0,len(strand1pos)):
+    b1 = strand1pos[i]+normals1[i]
+    b2 = strand2pos[i]+normals2[i]
+    base_vec1 = rot(normals1[i],tan_vals[i],min_deg)
+    base_vec2 = rot(normals2[i],tan_vals[i],-min_deg)
+    normals1_m.append(-base_vec1)
+    normals2_m.append(-base_vec2)
+    
+    rb1_new = base_vec1-b1
+    rb2_new = base_vec2-b2
+    strand1pos_m.append(rb1_new)
+    strand2pos_m.append(rb2_new)
+
+
+
+
+spline1 = pos_2_spline(strand1pos,circular,reverse=False)
+spline2 = pos_2_spline(strand2pos,circular,reverse=False)
+twist, writhe = get_twist_writhe(spline1, spline2, npoints, circular = True, integral_type = "simple")
 Lk = twist + writhe
 print('twist is '+ str(twist))
 print('writhe is '+ str(writhe))
@@ -368,9 +424,9 @@ ax.set_xlim3d(-L/4, L/4)
 ax.set_ylim3d(-L/4, L/4)
 ax.set_zlim3d(-L/4, L/4)
 
-plot(strand1pos,scatter=False)
-plot(strand2pos,scatter=False)
-plot(centre_line)
+plot(strand1pos_m,scatter=False)
+plot(strand2pos_m,scatter=False)
+
 
 plt.show()
 
@@ -384,69 +440,70 @@ plt.show()
 Now we write the topology and configuration files
 '''
 
-
-top_file_name = "top.top"
-conf_file_name = "conf.dat"
-
-top = open(top_file_name,"w")
-conf = open(conf_file_name,"w")
-
-top.write(str(2*bp)+ " " + str(strands) + "\n")
-for s in range(strands):
-    s = s + 1
-    if s==1:
-        if circular == True:
-            top.write(str(s) + " " + sequence[0] + " " + str(bp-1) + " " + str(1) + "\n")
-        else:
-            top.write(str(s) + " " + sequence[0] + " " + str(-1) + " " + str(1) + "\n")
-        for i in range(1,bp-1):
-            top.write(str(s) + " " + sequence[i] + " " + str(i-1) + " " + str(i+1) + "\n")
-        if circular == True:
-            top.write(str(s) + " " + sequence[-1] + " " + str(bp-2) + " " + str(0) + "\n")
-        else:
-            top.write(str(s) + " " + sequence[-1] + " " + str(-1) + " " + str(1+bp) + "\n")
-    else:
-        if circular == True:
-            top.write(str(s) + " " + comp_sequence[0] + " " + str(2*bp-1) + " " + str(bp+1) + "\n")
-        else:
-            top.write(str(s) + " " + comp_sequence[0] + " " + str(-1) + " " + str(1+bp) + "\n")
-        for i in range(1,bp-1):
-            top.write(str(s) + " " + comp_sequence[i] + " " + str(i-1+bp) + " " + str(i+1+bp) + "\n")
-        if circular == True:
-            top.write(str(s) + " " + comp_sequence[-1] + " " + str(2*bp-2) + " " + str(bp) + "\n")
-        else:
-            top.write(str(s) + " " + comp_sequence[-1] + " " + str(-1) + " " + str(1+bp) + "\n")
-
+def write_top(top_file_name,bp,sequence,circular):
     
-top.close()
+    top = open(top_file_name,"w")
+    
+    
+    top.write(str(2*bp)+ " " + str(strands) + "\n")
+    for s in range(strands):
+        s = s + 1
+        if s==1:
+            if circular == True:
+                top.write(str(s) + " " + sequence[0] + " " + str(bp-1) + " " + str(1) + "\n")
+            else:
+                top.write(str(s) + " " + sequence[0] + " " + str(-1) + " " + str(1) + "\n")
+            for i in range(1,bp-1):
+                top.write(str(s) + " " + sequence[i] + " " + str(i-1) + " " + str(i+1) + "\n")
+            if circular == True:
+                top.write(str(s) + " " + sequence[-1] + " " + str(bp-2) + " " + str(0) + "\n")
+            else:
+                top.write(str(s) + " " + sequence[-1] + " " + str(-1) + " " + str(1+bp) + "\n")
+        else:
+            if circular == True:
+                top.write(str(s) + " " + comp_sequence[0] + " " + str(2*bp-1) + " " + str(bp+1) + "\n")
+            else:
+                top.write(str(s) + " " + comp_sequence[0] + " " + str(-1) + " " + str(1+bp) + "\n")
+            for i in range(1,bp-1):
+                top.write(str(s) + " " + comp_sequence[i] + " " + str(i-1+bp) + " " + str(i+1+bp) + "\n")
+            if circular == True:
+                top.write(str(s) + " " + comp_sequence[-1] + " " + str(2*bp-2) + " " + str(bp) + "\n")
+            else:
+                top.write(str(s) + " " + comp_sequence[-1] + " " + str(-1) + " " + str(1+bp) + "\n")
+    
+        
+    top.close()
 
 
 
-conf.write("t = 0" + "\n")
-conf.write("b = "+str(box)+" " +str(box)+" "+str(box) + "\n")
-conf.write("E = 0" + "\n")
-for s in range(strands):
-    s = s + 1
-    if s==1:
-        for i in range(0,bp):
-            conf.write(str(strand1pos[i][0]) + " " + str(strand1pos[i][1]) + " " + str(strand1pos[i][2])  \
-                        +" " + str(normals1[i][0]) + " " + str(normals1[i][1]) + " " + str(normals1[i][2]) \
-                             + " " +str(-tan_vals[i][0]) + " " + str(-tan_vals[i][1]) + " " + str(-tan_vals[i][2]) \
-                                 + " 0 0 0 0 0 0" +"\n")
-    else:
-        for i in range(0,bp):
-            conf.write(str(strand2pos[bp-i-1][0]) + " " + str(strand2pos[bp-i-1][1]) + " " + str(strand2pos[bp-i-1][2]) \
-                       +" " + str(normals2[bp-i-1][0]) + " " + str(normals2[bp-i-1][1]) + " " + str(normals2[bp-i-1][2]) \
-                           + " " + str(-tan_vals[bp-i-1][0]) + " " + str(-tan_vals[bp-i-1][1]) + " " + str(-tan_vals[bp-i-1][2]) \
-                               + " 0 0 0 0 0 0" +"\n")
-
-conf.close()
-
-
-
-
+def write_conf(conf_file_name,strand1pos,normals1,strand2pos,normals2,bp,box):
+    conf = open(conf_file_name,"w")
+    conf.write("t = 0" + "\n")
+    conf.write("b = "+str(box)+" " +str(box)+" "+str(box) + "\n")
+    conf.write("E = 0" + "\n")
+    for s in range(strands):
+        s = s + 1
+        if s==1:
+            for i in range(0,bp):
+                conf.write(str(strand1pos[i][0]) + " " + str(strand1pos[i][1]) + " " + str(strand1pos[i][2])  \
+                            +" " + str(normals1[i][0]) + " " + str(normals1[i][1]) + " " + str(normals1[i][2]) \
+                                 + " " +str(-tan_vals[i][0]) + " " + str(-tan_vals[i][1]) + " " + str(-tan_vals[i][2]) \
+                                     + " 0 0 0 0 0 0" +"\n")
+        else:
+            for i in range(0,bp):
+                conf.write(str(strand2pos[bp-i-1][0]) + " " + str(strand2pos[bp-i-1][1]) + " " + str(strand2pos[bp-i-1][2]) \
+                           +" " + str(normals2[bp-i-1][0]) + " " + str(normals2[bp-i-1][1]) + " " + str(normals2[bp-i-1][2]) \
+                               + " " + str(-tan_vals[bp-i-1][0]) + " " + str(-tan_vals[bp-i-1][1]) + " " + str(-tan_vals[bp-i-1][2]) \
+                                   + " 0 0 0 0 0 0" +"\n")
+    
+    conf.close()
 
 
+
+
+
+write_conf("conf.dat",strand1pos_m,normals1_m,strand2pos_m,normals2_m,bp,box)
+write_top("top.top",bp,sequence,circular)
 
 
 
