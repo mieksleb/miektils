@@ -26,9 +26,9 @@ def rot(B,A,theta):  #rotates vector B about axis A using Euler-Rodrigues formul
 speedup = True
 
 if speedup:
-    from tools_fast_math import get_twist_writhe,multidet,norm,rot
+    from tools_fast_math import get_twist_writhe,multidet,normalize,rot_fast
 else:
-    from tools import multidet,norm,get_twist_writhe,rot
+    from tools import multidet,normalize,get_twist_writhe,rot
 
 
 
@@ -62,31 +62,28 @@ def bernoulli_lemniscate(t):
         y = np.sin(t)*np.cos(t)/(1+(np.sin(t))**2)
         z = 0.1*np.sin(t)
         return x,y,z
-    
-    
 
 
 '''
 Parameters and checks
 
 '''
-func = lambda t: right_trefoil(t)
-bp = 10212
+func = lambda t: bernoulli_lemniscate(t)
+bp = 500
 circular = True         # circular boolean is true when structure is closed
 periodic = True         # periodic boolean is true when x(n)=x(1), i.e. the final position is equal to the first
 sequence_input = False  # sequence = True means a sequence file will be given
 strands = 2
 oxdna_unit_len = 0.8518 # nm
-lpbp = 0.33 / oxdna_unit_len        # length per base pair in simulation units
-dup_rad = (1.15 / oxdna_unit_len)/2 # duplex radius in simualtion units
+lpbp = 0.3897628551303122        # length per base pair in simulation units
+dup_rad = 0.6 # duplex radius in simualtion units
 L = bp*lpbp                         # contour length 
 base_length = 0.7                   # distance from backbone to base
 centre_line = []
-pitch = 10.36                       # helical pitch of dsDNA
+pitch = 10.34                       # helical pitch of dsDNA
 npoints = bp
-min_rat = 0.3
-maj_rat = 0.7
-min_deg = 20*np.pi/180 #minor groove rotation angle
+min_deg = 0*np.pi/180 #minor groove rotation angle
+
 
 Lk0 = bp/pitch # this is the relaxed linking number, deltaLk=0
 deltaLk = 0
@@ -103,65 +100,69 @@ if sequence_input == False:
     for count in range(bp):
        sequence.append(choice("CGTA"))
        
-def generate(bp,centre_line,tan_vals,theta,v1):
+def generate(bp,centre_line,theta,circular,periodic):
     """
-
-    Parameters
-    ----------
-    bp : integer
-        number of base pairs
-    centre_line : list of numpy arrays
-        ith member of list is numpy array of centreline position
-    tan_vals : list
-        list of tangent values
-    theta : real
-        angle per base pair of rotation
-    v1 : numpy array (3d vector)
-        DESCRIPTION.
-
-    Returns
-    -------
-    strand1pos : list
-        list of positions of strand1
-    strand2pos : list
-        list of positions of strand1
-    normals1 : TYPE
-        DESCRIPTION.
-    normals2 : TYPE
-        DESCRIPTION.
-
+    Main function for generating the strand positions and normals for a duplex
+    
+    As we move around the centre-line, we rotate the bases counter clockwise
+    by some angle theta (to form a right handed helix)
+    
+    v1 is a vector perpendicular to the tangent at the first base
+    
     """
-    # skip first base pairs
+    
+    strand1pos = []
+    strand2pos = []
+    normals1 = []
+    normals2 = []
+    
+    
+    # calculate the unit tangents at every base pair
+    # for circular dna len(tan_vals)=bp, otherwise len(tan_vals)=bp-1
+    tan_vals = []
+    old_point = centre_line[-1]
+    point = centre_line[0]
+    diff = np.array([point[0]-old_point[0],point[1]-old_point[1],point[2]-old_point[2]])
+    diff /=np.linalg.norm(diff)
+    tan_vals.append(diff)
+    old_point = centre_line[0]
     for i in range(1,bp):
+        point = centre_line[i]
+        diff = np.array([point[0]-old_point[0],point[1]-old_point[1],point[2]-old_point[2]])
+        diff /=np.linalg.norm(diff)
+        tan_vals.append(diff)
+        old_point = point
         
+    rad = dup_rad
+    
+    # we need a vector perpendicular to the inital tangent
+    v1 = np.random.random_sample(3)
+    v1 -= tan_vals[0] * (np.dot(tan_vals[0], v1))
+    v1 /= np.linalg.norm(v1)
+
+    rb1 = centre_line[0] + dup_rad*v1
+    rb2 = centre_line[0] - dup_rad*v1
+    normals1.append(-v1)
+    normals2.append(v1)
+      
+    for i in range(1,len(tan_vals)):   
+        # remove component of v2 in the direction of tangent
+        v1 -= v1*(np.dot(v1,tan_vals[i]))
+        v1 /= np.linalg.norm(v1)
+        # rotate by theta and normalise
+        v1 = rot(v1,tan_vals[i],theta)
+        v1 /= np.linalg.norm(v1)
         
-        v2 = v1
-        # remove component of v2 in direction of tan
-        v2 -= v2*(np.dot(v2,tan_vals[i]))
-        v2 /= np.linalg.norm(v2)
-        
-        v2 = rot(v2,tan_vals[i],theta)
-        v2 /= np.linalg.norm(v2)    
-        
-        '''
-        # rotate the previous v1 by theta, then project (other option)
-        v2 = rot(v1,tan_vals[i],theta)
-        v2 /= np.linalg.norm(v2)
-        
-        # remove component of v2 in direction of v1
-        v2 -= v2*(np.dot(v2,v1))
-        v2 /= np.linalg.norm(v2)
-        '''
              
-        rb1 = centre_line[i] + dup_rad*v2
-        rb2 = centre_line[i] - dup_rad*v2
+        rb1 = centre_line[i] + rad*v1
+        rb2 = centre_line[i] - rad*v1
         
-        normals1.append(-v2)
-        normals2.append(v2)
+        normals1.append(-v1)
+        normals2.append(v1)
         strand1pos.append(rb1)
         strand2pos.append(rb2)
-        v1 = v2
-    return strand1pos,strand2pos,normals1,normals2,v2
+
+    return strand1pos,strand2pos,normals1,normals2,tan_vals
 
  
     
@@ -258,11 +259,27 @@ while io!=3:
     n = L/total_len
     io+=1
 
-box = max(xrange,yrange,zrange)
+box = 5*max(xrange,yrange,zrange)
 
+dist = np.linalg.norm(centre_line[0]-centre_line[1])
 
-# Now we need to add in the major minor grooves
+# we now centre the centre_line in the box
 
+com = []
+xcom=0
+ycom=0
+zcom=0
+for i in range(len(xx)):
+    xcom += xx[i]
+    ycom += yy[i]
+    zcom += zz[i]
+xcom /= len(xx)
+ycom /= len(yy)
+zcom /= len(zz)
+
+centre_line = []
+for i in range(len(xx)):
+    centre_line.append(np.array([xx[i]-xcom,yy[i]-ycom,zz[i]-zcom]))
 
 
 
@@ -271,53 +288,21 @@ if periodic == True:
     del centre_line[-1]
     
 
-
-# calculate the unit tangents at every base pair
-tan_vals = []
-old_point = centre_line[-1]
-for point in centre_line:
-    diff = np.array([point[0]-old_point[0],point[1]-old_point[1],point[2]-old_point[2]])
-    diff /= np.linalg.norm(diff)
-    old_point = point
-    tan_vals.append(diff)
-    
-# need a vector perpendicular to the initial tangent tan_vals[0]
-v1 = np.random.random_sample(3)
-v1 -= tan_vals[0] * (np.dot(tan_vals[0], v1))
-v1 /= np.sqrt(sum(v1*v1))
-v10 = v1    # save the very first vector
-
 phi = 0
-
-
-
 
 '''
 This part of the code ensures that the configuration has the correct linking number
 '''
+print("Correcting the Linking number")
+for j in range(0,1):
 
-for j in range(0,2):
-    strand1pos = []
-    strand2pos = []
-    normals1 = []
-    normals2 = []
-    
-    rb1 = centre_line[0] + dup_rad*v1
-    rb2 = centre_line[0] - dup_rad*v1
-
-    normals1.append(-v1)
-    normals2.append(v1)
-    strand1pos.append(rb1)
-    strand2pos.append(rb2)
 
     theta = theta0 + phi
     
-    # skip first base pairs
-    strand1pos,strand2pos,normals1,normals2,v2 = generate(bp, centre_line, tan_vals, theta, v1)
-    
+    strand1pos,strand2pos,normals1,normals2,tan_vals = generate(bp,centre_line,theta,circular,periodic)
     spline1 = pos_2_spline(strand1pos,circular,reverse=False)
     spline2 = pos_2_spline(strand2pos,circular,reverse=False)
-    twist, writhe = get_twist_writhe(spline1, spline2, npoints, circular = True, integral_type = "simple")
+    twist, writhe = get_twist_writhe(spline1, spline2, npoints, circular, integral_type = "simple")
     Lk = twist + writhe
     print('twist is '+ str(twist))
     print('writhe is '+ str(writhe))
@@ -325,74 +310,29 @@ for j in range(0,2):
     
     deltaLk_actual = Lk - Lk0
     difference = deltaLk_actual-deltaLk
-    phi = -difference*2*np.pi/bp
+    phi = difference*2*np.pi/bp
     
 
+
+
+
     
-    
-# The structure now has the correct linking number! We now need to check the
+# The structure now has the correct linking number and major and minor grooving! We now need to check the
 # angle between the last base-pair and the first
-    
+v10 = normals1[0]
+v2 = normals2[-1]
 v2 -= v2*(np.dot(v2,tan_vals[-1]))
 v2 /= np.linalg.norm(v2)
 last_ang = np.arccos(np.dot(v2,v10))
-print(last_ang)
-print(theta)
+
 delta_ang = last_ang - theta
-delta_ang_pbp = delta_ang/bp # chnage in angle per base pair
+delta_ang_pbp = delta_ang/bp # change in angle per base pair
 theta += delta_ang_pbp
+# strand1pos,strand2pos,normals1,normals2,tan_vals = generate(bp,centre_line,theta,circular,periodic)
 
 expected_twist = theta*bp/(2*np.pi)
+print("expected twist is "+str(expected_twist))
     
-
-
-strand1pos = []
-strand2pos = []
-normals1 = []
-normals2 = []
-
-rb1 = centre_line[0] + dup_rad*v1
-rb2 = centre_line[0] - dup_rad*v1
-
-
-normals1.append(-v1)
-normals2.append(v1)
-strand1pos.append(rb1)
-strand2pos.append(rb2)
-
-strand1pos,strand2pos,normals1,normals2,v2 = generate(bp, centre_line, tan_vals, theta, v10)
-
-
-
-'''
-Now we add the major minor grooving
-
-This involves rotating the back_bone positions about the centre of nucleotides by 20 degrees
-
-'''
-# first we get the centre of mass of the base pairs
-
-com = [(strand1pos[i]+strand2pos[i])/2 for i in range(0,len(strand1pos))]
-
- 
-strand1pos_m = []
-strand2pos_m = []
-normals1_m = []
-normals2_m = []
-for i in range(0,len(strand1pos)):
-    b1 = strand1pos[i]+normals1[i]
-    b2 = strand2pos[i]+normals2[i]
-    base_vec1 = rot(normals1[i],tan_vals[i],min_deg)
-    base_vec2 = rot(normals2[i],tan_vals[i],-min_deg)
-    normals1_m.append(-base_vec1)
-    normals2_m.append(-base_vec2)
-    
-    rb1_new = base_vec1-b1
-    rb2_new = base_vec2-b2
-    strand1pos_m.append(rb1_new)
-    strand2pos_m.append(rb2_new)
-
-
 
 
 spline1 = pos_2_spline(strand1pos,circular,reverse=False)
@@ -420,19 +360,19 @@ def plot(list_vecs,scatter=False):
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.set_xlim3d(-L/4, L/4)
-ax.set_ylim3d(-L/4, L/4)
-ax.set_zlim3d(-L/4, L/4)
+ax.set_xlim3d(-L/5, L/5)
+ax.set_ylim3d(-L/5, L/5)
+ax.set_zlim3d(-L/5, L/5)
 
-plot(strand1pos_m,scatter=False)
-plot(strand2pos_m,scatter=False)
+plot(strand1pos,scatter=False)
+plot(strand2pos,scatter=False)
 
 
 plt.show()
 
 
 
-
+box = 100
 
 
 
@@ -487,7 +427,7 @@ def write_conf(conf_file_name,strand1pos,normals1,strand2pos,normals2,bp,box):
             for i in range(0,bp):
                 conf.write(str(strand1pos[i][0]) + " " + str(strand1pos[i][1]) + " " + str(strand1pos[i][2])  \
                             +" " + str(normals1[i][0]) + " " + str(normals1[i][1]) + " " + str(normals1[i][2]) \
-                                 + " " +str(-tan_vals[i][0]) + " " + str(-tan_vals[i][1]) + " " + str(-tan_vals[i][2]) \
+                                 + " " +str(tan_vals[i][0]) + " " + str(tan_vals[i][1]) + " " + str(tan_vals[i][2]) \
                                      + " 0 0 0 0 0 0" +"\n")
         else:
             for i in range(0,bp):
@@ -502,7 +442,7 @@ def write_conf(conf_file_name,strand1pos,normals1,strand2pos,normals2,bp,box):
 
 
 
-write_conf("conf.dat",strand1pos_m,normals1_m,strand2pos_m,normals2_m,bp,box)
+write_conf("conf.dat",strand1pos,normals1,strand2pos,normals2,bp,box)
 write_top("top.top",bp,sequence,circular)
 
 
