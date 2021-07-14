@@ -329,29 +329,29 @@ def vecs2spline(vecs, per, k):
 
 
 
-def discrete_dbl_int(tt, uu, duu, xx, yy, zz, dx, dy, ss, circular = True):
-    if circular:
-        srange = range(len(ss)-1)
-    else:
-        srange = range(len(ss))
-    twist_integral = 0
-    writhe_integral = 0
-    for ii in srange:
-        triple_scalar_product = multidet(tt[ii], uu[ii], duu[ii])
-        #triple_scalar_product = np.dot(tt[ii], np.cross(uu[ii], duu[ii]))
-        twist_integral += triple_scalar_product 
-        for jj in srange:
-            # skip ii=jj and use symmetry in {ii, jj}
-            if ii > jj:
-                diff = np.array([float(xx[ii]-xx[jj]), float(yy[ii] - yy[jj]), float(zz[ii] - zz[jj])])
-                diff_mag = np.sqrt(np.dot(diff, diff))
-                diff_frac = diff / (diff_mag ** 3)
-                triple_scalar_product = multidet((tt[ii]), tt[jj], diff_frac)
-                writhe_integral += triple_scalar_product
-        # multiply by 2 because we exploited the symmetry in {ii, jj} to skip half of the integral
-    twist_integral *= dx / (2 * np.pi)
-    writhe_integral *= 1 * dx * dy / (2 * np.pi)
-    return twist_integral, writhe_integral
+# def discrete_dbl_int(tt, uu, duu, xx, yy, zz, dx, dy, ss, circular = True):
+#     if circular:
+#         srange = range(len(ss)-1)
+#     else:
+#         srange = range(len(ss))
+#     twist_integral = 0
+#     writhe_integral = 0
+#     for ii in srange:
+#         triple_scalar_product = multidet(tt[ii], uu[ii], duu[ii])
+#         #triple_scalar_product = np.dot(tt[ii], np.cross(uu[ii], duu[ii]))
+#         twist_integral += triple_scalar_product 
+#         for jj in srange:
+#             # skip ii=jj and use symmetry in {ii, jj}
+#             if ii > jj:
+#                 diff = np.array([float(xx[ii]-xx[jj]), float(yy[ii] - yy[jj]), float(zz[ii] - zz[jj])])
+#                 diff_mag = np.sqrt(np.dot(diff, diff))
+#                 diff_frac = diff / (diff_mag ** 3)
+#                 triple_scalar_product = multidet((tt[ii]), tt[jj], diff_frac)
+#                 writhe_integral += triple_scalar_product
+#         # multiply by 2 because we exploited the symmetry in {ii, jj} to skip half of the integral
+#     twist_integral *= dx / (2 * np.pi)
+#     writhe_integral *= 1 * dx * dy / (2 * np.pi)
+#     return twist_integral, writhe_integral
 
 
 
@@ -405,7 +405,6 @@ def closest_point(point, points):
 
 
 
-
 def get_twist_writhe(spline1, spline2, npoints = 1000, circular = False, integral_type = "simple"):
     
     """
@@ -414,7 +413,8 @@ def get_twist_writhe(spline1, spline2, npoints = 1000, circular = False, integra
 
     args:
     spline1: list of 3 splines corresponding to x, y and z spline through strand 1's backbone
-    spline2: list of 3 splines corresponding to x, y and z spline through strand 2's backbone -- NB the splines should run in the same direction, i.e. one must reverse one of the splines if they come from get_base_spline (e.g. use get_base_spline(reverse = True))
+    spline2: list of 3 splines corresponding to x, y and z spline through strand 2's backbone -- NB the splines should run in the same direction, i.e. one must reverse one of the splines if they c
+    from get_base_spline (e.g. use get_base_spline(reverse = True))
 
     npoints: number of points for the discrete integration
     """
@@ -507,7 +507,7 @@ def get_twist_writhe(spline1, spline2, npoints = 1000, circular = False, integra
         uu[ii] = np.array([uxx[ii], uyy[ii], uzz[ii]])
         uu[ii] = uu[ii] - np.dot(tt[ii], uu[ii]) * tt[ii]
         # the normal vector should be normalised
-        uu[ii] = norm(uu[ii])
+        uu[ii] = normalize(uu[ii])
         
         
     # and finally we need the derivatives of that vector u(s). It takes a bit of work to get a spline of the normalised version of u from the unnormalised one
@@ -529,8 +529,32 @@ def get_twist_writhe(spline1, spline2, npoints = 1000, circular = False, integra
     # do the integration w.r.t. s
  
     
+    
+    # now for the integration which we use numba fastmath capabilities for speed
+    def discrete_dbl_int(tt, uu, duu, xx, yy, zz, dx, dy, ss, circular = circular):
+        if circular:
+            srange = range(len(ss)-1)
+        else:
+            srange = range(len(ss))
+        twist_integral = 0
+        writhe_integral = 0
+        for ii in srange:
+            triple_scalar_product = multidet(tt[ii], uu[ii], duu[ii])
+            twist_integral += triple_scalar_product 
+            for jj in srange:
+                # skip ii=jj and use symmetry in {ii, jj}
+                if ii > jj:
+                    diff = np.array([xx[ii]-xx[jj], yy[ii] - yy[jj], zz[ii] - zz[jj]])
+                    diff_mag = np.sqrt(np.dot(diff, diff))
+                    diff_frac = diff / (diff_mag ** 3)
+                    triple_scalar_product = multidet((tt[ii]), tt[jj], diff_frac)
+                    writhe_integral += triple_scalar_product
+            
+        twist_integral *= dx / (2 * np.pi)
+        writhe_integral *= dx * dy / (2 * np.pi) # multiplied by 2 because we exploited the symmetry in {ii, jj} to skip half of the integral
+        return twist_integral, writhe_integral
+    
+    
     twist, writhe = discrete_dbl_int(tt, uu, duu, xx, yy, zz, ds, ds, ss, circular = True)
     
     return twist, writhe
-    
-    
