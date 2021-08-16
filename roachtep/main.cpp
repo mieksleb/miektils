@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <string>
 #include <iomanip>
@@ -8,20 +9,32 @@
 #include <vector>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <Eigen/Dense>
+#include "forces.h"
+#include "tensor_tools.h"
+#include "model.h"
 
 using namespace std;
 using namespace Eigen;
 
-int main ( int argc, char *argv[] );
-void compute ( int np, Tensor<double,2> pos, Tensor<double,2> vel,
-               Tensor<double,2> force, double &pot, double &kin );
+
+
+
+void initialize ( int np , string conf_path, Tensor<double,2> &pos, Tensor<double,2> &vel, Tensor<double,2> &acc);
+
+void compute ( int np, Tensor<double,2> &pos, Tensor<double,2> &vel,
+              Tensor<double,2> &force, double &pot, double &kin );
+
+//void r8mat_uniform_ab ( int m, int n, double a, double b, int &seed, double r[] );
+//Tensor<double,2> FENE_force(int np, Tensor<double,2> diffvectens,Tensor<double,2> difftens, double d, double kappa, double boltzmann, double r0);
+
+
 double cpu_time ( );
-double dist ( int nd, double r1[], double r2[], double dr[] );
-void initialize ( int np, int nd, double pos[], double vel[], double acc[] );
-void r8mat_uniform_ab ( int m, int n, double a, double b, int &seed, double r[] );
+
 void timestamp ( );
-void update ( int np, double pos[], double vel[], double f[],
-              double acc[], double mass, double dt );
+void update ( int np, Tensor<double,2> &pos, Tensor<double,2> &vel, Tensor<double,2> &force,Tensor<double,2> &old_force,
+              Tensor<double,2> &acc, double dt, double boltzmann);
+
+
 
 
 //****************************************************************************80
@@ -42,75 +55,111 @@ int main ( int argc, char *argv[] )
 //    * dt is the time step (0.1 for instance)
 //
 {
-//    double *acc;
+    int np;
     double ctime;
     double dt;
     double e0;
-    Tensor<double,2> force;
     double kinetic;
-    double mass = 1.0;
-    int np;
-    Tensor<double,2> pos;
     double potential;
+    double temp;
     int step;
     int step_num;
     int step_print;
     int step_print_index;
     int step_print_num;
-    Tensor<double,2> vel;
+    string top_file_name;
+    string conf_file_name;
+
+    cout << argv[0] << endl;
 
     timestamp ( );
     cout << "\n";
-    cout << "Roachtep\n";
+    cout << "  Miektep\n";
     cout << "  C++ version\n";
     cout << "  A molecular dynamics program for basic roaches :-) \n";
 //
 
-//  Get the number of particles.
-//
-    if ( 1 < argc )
-    {
-        np = stoi ( argv[2] );
+
+    string line;
+    ifstream input_file;
+    string inp_delim = "=";
+    input_file.open("/Users/michaelselby/Documents/DPhil/miektils/roachtep/input.in");
+    if (input_file.is_open()) {   //checking whether the file is open
+        while (getline(input_file, line)) { //read data from file object and put it into string
+            auto start = 0U;
+            auto end_str = line.find(inp_delim);
+            while (end_str != string::npos)
+            {
+                string search = line.substr(start, end_str - start);
+                start = end_str + inp_delim.length();
+                end_str = line.find(inp_delim, start);
+                string val = line.substr(start, end_str);
+                search.erase( std::remove_if( search.begin(), search.end(), ::isspace ), search.end() );
+                val.erase( std::remove_if( val.begin(), val.end(), ::isspace ), val.end() );
+               if ( search == "steps" )
+                {
+                    step_num = stoi(val);
+                }
+                else if ( search == "dt" )
+                {
+                    dt = stod(val);
+                }
+                else if ( search == "top" )
+                {
+                    top_file_name = val;
+                }
+                else if ( search == "conf" )
+                {
+                    conf_file_name = val;
+                }
+                else if ( search == "T" )
+                {
+                    temp = stod(val);
+                }
+
+
+            }
+        }
     }
-    else
-    {
-        cout << "\n";
-        cout << "  Enter np, the number of particles (500, for instance).\n";
-        cin >> np;
+    input_file.close(); //close the file object.
+
+    double boltzmann = kb*temp;
+
+    string top_path = "/Users/michaelselby/Documents/DPhil/miektils/roachtep/"+top_file_name;
+    string conf_path = "/Users/michaelselby/Documents/DPhil/miektils/roachtep/"+conf_file_name;
+
+//  We now open the topology file and obtain np and circular;
+
+    ifstream top_file;
+    top_file.open(top_path);
+    if (top_file.is_open()) {   //checking whether the file is open
+        getline(top_file, line);
+        line.erase(std::remove_if(line.begin(), line.end(), ::isspace), line.end());
+        np = stoi(line);
+        string s;
+        while (getline(top_file, line)) { //read data from file object and put it into string
+            istringstream line0(line);
+            while (getline(line0, s,' ')) {
+
+                cout << s << endl;
+            }
+
+        }
     }
-//
-//  Get the number of time steps.
-//
-    if ( 2 < argc )
-    {
-        step_num = atoi ( argv[3] );
-    }
-    else
-    {
-        cout << "\n";
-        cout << "  Enter step_num, the number of time steps.\n";
-        cin >> step_num;
-    }
-//
-//  Get the time step.
-//
-    if ( 3 < argc )
-    {
-        dt = atof ( argv[4] );
-    }
-    else
-    {
-        cout << "\n";
-        cout << "  Enter dt, the time step size.\n";
-        cin >> dt;
-    }
+    top_file.close(); //close the file object.
+
+
+
 //
 //  Report.
 //
     cout << "\n";
-    cout << "  NP, the number of particles in the simulation is " << np << "\n";
-    cout << "  step_num, the number of time steps, is " << step_num << "\n";
-    cout << "  dt, the size of each time step, is " << dt << "\n";
+    cout << "  np, the number of particles in the simulation is " << np << endl;
+    cout << "  step_num, the number of time steps, is " << step_num << endl;
+    cout << "  dt, the size of each time step, is " << dt << endl;
+    cout << "  T, the temperature of each time step, is " << temp << endl;
+//    cout << "  The input configuration is " + top_file << endl;
+//    cout << "  The input topology is " << conf_file << endl;
 
 
 //
@@ -128,24 +177,40 @@ int main ( int argc, char *argv[] )
     cout << "                Energy P        Energy K       Relative Energy Error\n";
     cout << "\n";
 
-    step_print = 0;
+    step_print = 10;
     step_print_index = 0;
     step_print_num = 10;
 
     ctime = cpu_time ( );
 
-    for ( step = 0; step <= step_num; step++ )
-    {
+
+    // Construct the positions, velocities, accelerations and forces all as rank 2 tensors
+    Tensor<double,2> pos(np,3);
+    Tensor<double,2> acc(np,3);
+    Tensor<double,2> vel(np,3);
+    Tensor<double,2> force(np,3);
+    Tensor<double,2> old_force(np,3);
+
+    // Initialize with zeros
+    pos.setZero();
+    acc.setZero();
+    vel.setZero();
+    force.setZero();
+    old_force.setZero();
+
+
+
+    for ( step = 0; step <= step_num; step++ ) {
+
         if ( step == 0 )
         {
-            initialize(np,pos,vel);
+            initialize(np,conf_path,pos,vel,acc);
         }
         else
         {
-            update(np,pos,vel,force,mass,dt);
+            update(np,pos,vel,force,old_force,acc,dt,boltzmann);
         }
-
-        compute(np,pos,vel,mass,force,potential,kinetic );
+        compute(np,pos,vel,force,potential,kinetic );
 
         if ( step == 0 )
         {
@@ -182,78 +247,85 @@ int main ( int argc, char *argv[] )
     return 0;
 }
 
-// This function slices a the ith column vector from a rank 2 tensor
-// Input: Rank 2 Tensor (n x m matrix)
-// Output: Rank 1 tensor (n dimensional vector)
 
-Tensor<double,1> get_slice(Tensor<double,2> input, int i) {
-    Eigen::array<Eigen::Index, 2> dims = input.dimensions();
-    Eigen::array<long, 2> offsets = {i, 0};
-    Eigen::array<long, 2> extents = {1, dims[1]};
-    Tensor<double, 1> slice = input.slice(offsets, extents).reshape(Eigen::array<long, 1>{3});
-    return slice;
-}
 
 
 //****************************************************************************80
 
-void compute ( int np, Tensor<double,2> pos, Tensor<double,2> vel, double mass,
-               Tensor<double,2> force, double &pot, double &kin ) {
+void compute ( int np, Tensor<double,2> &pos, Tensor<double,2> &vel,
+               Tensor<double,2> &force, double &pot, double &kin ) {
 
 //****************************************************************************80
 //
 //  Purpose:
 //
 //    COMPUTE computes the forces,
-//    force : total force, f(i,alpha) is ath component of the vectorial force acting on particle i
+//    force : total force, f(i,alpha) is alpha'th component of the vectorial force acting on particle i
 //
 
     double d;
     double d2;
-    double PI2 = 3.141592653589793 / 2.0;
-    Tensor<double,2> FENE_force;
-    Tensor<double,2> BEND_force;
-    Tensor<double,1> diffvec;       // matrix ri-rj
-    Tensor<double,1> diff2;
+    double PI2 = PI / 2.0;
+    Tensor<double, 2> fene(np,3);
+    Tensor<double, 2> bend(np,3);
+    Tensor<double, 1> rij(3);       // matrix ri-rj
+    Tensor<double, 0> diff2;
+    Tensor<double, 3> diffvectens(np,np,3);
+    Tensor<double, 2> diff2vals(np,np);
 
+    diffvectens.setZero();
+    diff2vals.setZero();
+    fene.setZero();
+    d2 = diff2();
 
+    double boltzmann = 1;
+    double kappa = 1;
+    double r0 = 2;
 
-    double pot = 0.0;
-    double kin = 0.0;
-
-    for ( int i = 0; i < np; i++ ) {
-        for ( int j = 0; j < np; j++ ) {
-            double alpha;
-            if (i == j){
+//  calculate the separation tensors
+    for (int i = 0; i < np; i++) {
+        for (int j = 0; j < np; j++) {
+            // if i=j then separation vector and scalar is zero
+            if (i == j) {
+                diff2vals(i, j) = 0;
+                for (int alpha = 0; alpha < 3; alpha++) {
+                    diffvectens(i, j, alpha) = 0;
+                    d2 = 0;
+                }
             }
-            else{
-                diffvec = get_slice(pos,i)-get_slice(pos,j); // vector ri-rj
-                Eigen::array<Eigen::IndexPair<int>, 1> product_dims = {Eigen::IndexPair<int>{0, 0}};
-                Tensor<double,0> r2;
-                diff2 = diffvec.contract(diffvec, product_dims); // norm |ri-rj|^2
-                force(i,alpha) = force(i,alpha) + FENE_force(int np, Tensor<double,1> diffvec,Tensor<double,2> diff2, double d, double kappa, double boltzmann, double r0);
-            }
+            else {
+                // if i=!j then we must calculate
+                rij = get_slice(pos, i) - get_slice(pos, j); // vector ri-rj
+                Eigen::array<IndexPair<int>, 1> product_dims = {IndexPair<int>{0, 0}};
+                diff2 = rij.contract(rij, product_dims); // norm ||ri-rj||^2
+                //diff2 = norm2(rij);
+                //cout << d2 << endl;
+                d2 = diff2();
+                diff2vals(i,j) = d2;
 
+                for (int alpha = 0; alpha < 3; alpha++) {
+                    diffvectens(i, j, alpha) = rij(alpha);
 
-
-
-
+                }
             }
         }
+    }
+    fene = FENE_force(np, diffvectens, diff2vals, d, kappa, boltzmann, r0);
+    force = fene;
+
+
 //
 //  Compute the kinetic energy.
 //
-        for ( i = 0; i < 3; i++ )
-        {
-            kin = kin + vel[] * vel[];
-        }
-    }
 
     kin = kin * 0.5 * mass;
 
     return;
 
+}
+
 //****************************************************************************80
+
 
 double cpu_time ( )
 
@@ -290,8 +362,7 @@ double cpu_time ( )
 
 
 
-
-void initialize ( int np, int nd, Tensor<double,2> pos, Tensor<double,2> vel, Tensor<double,2> acc )
+void initialize ( int np , string conf_path, Tensor<double,2> &pos, Tensor<double,2> &vel, Tensor<double,2> &acc)
 
 //****************************************************************************80
 //
@@ -302,114 +373,46 @@ void initialize ( int np, int nd, Tensor<double,2> pos, Tensor<double,2> vel, Te
 
 //  Parameters:
 //
-//    Input, int NP, the number of particles.
+//    Input, int np, the number of particles.
 //
-//    Input, int ND, the number of spatial dimensions.
+//    Output, Tensor<double,2> pos(np,3), the positions.
 //
-//    Output, double POS[ND*NP], the positions.
+//    Output, Tensor<double,2> vel(np,3), the velocities.
 //
-//    Output, double VEL[ND*NP], the velocities.
-//
-//    Output, double ACC[ND*NP], the accelerations.
+//    Output, Tensor<double,2> acc(np,3), the accelerations.
 //
 {
+
     int i;
     int alpha;
     int seed;
+    double d = 1;
+    string line;
 //
-//  Set the positions.
-//
-    seed = 42069;
-    r8mat_uniform_ab ( nd, np, 0.0, 10.0, seed, pos );
-//
-//  Set the velocities.
-//
-    for ( i = 0; i < np; i++ )
-    {
-        for ( alpha = 0; alpha < nd; alpha++ )
-        {
-            vel(i,alpha) = 0.0;
-        }
-    }
-//
-//  Set the accelerations.
-//
-    for ( i = 0; i < np; i++ )
-    {
-        for ( alpha = 0; alpha < nd; alpha++ )
-        {
-            acc(i,alpha) = 0.0;
-        }
-    }
-    return;
-}
-//****************************************************************************80
+//  Set the positions, velocities and accelerations
+//  We now open the configuration file
 
-void r8mat_uniform_ab ( int m, int n, double a, double b, int &seed, double r[] )
+    ifstream conf_file;
+    conf_file.open(conf_path);
+    if (conf_file.is_open()) {   //checking whether the file is open
+        getline(conf_file, line);
+        line.erase(std::remove_if(line.begin(), line.end(), ::isspace), line.end());
+        np = stoi(line);
+        string s;
+        while (getline(conf_file, line)) { //read data from file object and put it into string
+            istringstream line0(line);
+            while (getline(line0, s, ' ')) {
 
-//****************************************************************************80
-//
-//  Purpose:
-//
-//    R8MAT_UNIFORM_AB returns a scaled pseudorandom R8MAT.
-//
-//  Discussion:
-//
-//    An R8MAT is an array of R8's.
-//
-//    This routine implements the recursion
-//
-//      seed = ( 16807 * seed ) mod ( 2^31 - 1 )
-//      u = seed / ( 2^31 - 1 )
-//
-//    The integer arithmetic never requires more than 32 bits,
-//    including a sign bit.
-//  Parameters:
-//
-//    Input, int M, N, the number of rows and columns.
-//
-//    Input, double A, B, the limits of the pseudorandom values.
-//
-//    Input/output, int &SEED, the "seed" value.  Normally, this
-//    value should not be 0.  On output, SEED has
-//    been updated.
-//
-//    Output, double R[M*N], a matrix of pseudorandom values.
-//
-{
-    int i;
-    const int i4_huge = 2147483647;
-    int j;
-    int k;
-
-    if ( seed == 0 )
-    {
-        cerr << "\n";
-        cerr << "R8MAT_UNIFORM_AB - Fatal error!\n";
-        cerr << "  Input value of SEED = 0.\n";
-        exit ( 1 );
-    }
-
-    for ( j = 0; j < n; j++ )
-    {
-        for ( i = 0; i < m; i++ )
-        {
-            k = seed / 127773;
-
-            seed = 16807 * ( seed - k * 127773 ) - k * 2836;
-
-            if ( seed < 0 )
-            {
-                seed = seed + i4_huge;
+                cout << s << endl;
             }
 
-            r[i+j*m] = a + ( b - a ) * ( double ) ( seed ) * 4.656612875E-10;
         }
     }
-
-    return;
+    conf_file.close(); //close the file object.
 }
+
 //****************************************************************************80
+
 
 void timestamp ( )
 
@@ -458,54 +461,54 @@ void timestamp ( )
 }
 //****************************************************************************80
 
-vector<double> get_noise() {
-    // this function returns a gaussian random variable with zero mean and unit variance
-    unsigned seed;
-    seed = chrono::system_clock::now().time_since_epoch().count();
-    default_random_engine generator(seed);
-    normal_distribution<double> distribution(0.0, 1.0);
-    vector<double> noise = {distribution(generator),distribution(generator),distribution(generator)};
-    return noise;
-}
 
 
 
-void update( int np, int nd, Tensor<double,2> pos, Tensor<double,2> vel, Tensor<double,2> force, vector<double> mob, vector<double> mobroot,
-              vector<double> acc, double mass, double dt)
+
+void update ( int np, Tensor<double,2> &pos, Tensor<double,2> &vel, Tensor<double,2> &force,  Tensor<double,2> &old_force,
+                            Tensor<double,2> &acc, double dt, double boltzmann)
 
 //****************************************************************************80
 //
 //  Parameters:
 //
-//    Input, int NP, the number of particles.
+//    Input, int np, the number of particles.
 //
-//    Input, int ND, the number of spatial dimensions.
+//    Output, Tensor<double,2> pos(np,3), the positions.
 //
-//    Input/output, double POS[ND*NP], the positions.
+//    Output, Tensor<double,2> vel(np,3), the velocities.
 //
-//    Input/output, double VEL[ND*NP], the velocities.
+//   Output, Tensor<double,2> acc(np,3), the accelerations.
 //
-//    Input, double F[ND*NP], the forces.
+//    Output, Tensor<double,2> force(np,3), the forces.
 //
-//    Input/output, double ACC[ND*NP], the accelerations.
+//     Output, Tensor<double,2> old_force(np,3), the forces at the previous timestep
 //
-//    Input, double MASS, the mass of each particle.
+//    Input, double mass, the mass of each particle.
 //
-//    Input, double DT, the time step.
+//    Input, double dt, the time step.
 //
 {
     int i;
     int alpha;
-    Tensor<double,2> noise; // gaussian white noise with unit variance and zero mean
-    double factor;  //square root of boltzmann like 2*k_B*T
+    Tensor<double,2> noise(np,3); // gaussian white noise with unit variance and zero mean
+    noise = get_noise(np);
+    noise *= noise.constant(2*gam*boltzmann);
+    double factor;  //square root of boltzmann like factor 2*k_B*T
+    double dt2 = pow(dt,2);
+    double fact1 = 0.5*dt2/mass;
+    double fact2 = dt/2*mass;
+    double b = 1/(1+gam*fact1);
+    double a = (1+gam*fact1)*b;
 
-    noise = get_noise;
+    noise = get_noise(np);
 
 
     for ( i = 0; i < np; i++ ) {
-        for ( alpha = 0; alpha < nd; alpha++ ) {
-            pos(i,alpha) = pos(i,alpha) + dt*vel(i,alpha)+ (0.5*pow(dt,2) / mass)*force(i,alpha);
-            vel(i,alpha) = vel(i,alpha) + (dt/2*mass)*(force(i,alpha)-oldforce(i,alpha));
+        for ( alpha = 0; alpha < 3; alpha++ ) {
+            pos(i,alpha) += b*gam*dt*vel(i,alpha)+ b*fact1*force(i,alpha)+ b*fact2*noise(i,alpha);
+            vel(i,alpha) += fact2*( a * old_force(i,alpha)+force(i,alpha)) + b*noise(i,alpha) / mass;
+            old_force(i,alpha) = force(i,alpha);
 
 
 
@@ -514,4 +517,7 @@ void update( int np, int nd, Tensor<double,2> pos, Tensor<double,2> vel, Tensor<
 
     return;
 }
+
+
+
 
