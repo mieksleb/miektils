@@ -38,7 +38,7 @@ Parameters and checks
 
 '''
 
-bp = 500
+bp = 1000
 circular = True         # circular boolean is true when structure is closed
 periodic = True         # periodic boolean is true when x(n)=x(1), i.e. the final position is equal to the first
 sequence_input = False  # sequence = True means a sequence file will be given
@@ -90,7 +90,7 @@ def generate(bp,centre_line,theta,circular):
     old_point = centre_line[-1]
     point = centre_line[0]
     diff = np.array([point[0]-old_point[0],point[1]-old_point[1],point[2]-old_point[2]])
-    diff /=np.linalg.norm(diff)
+    diff /= np.linalg.norm(diff)
     tan_vals.append(diff)
     old_point = centre_line[0]
     for i in range(1,bp):
@@ -130,6 +130,59 @@ def generate(bp,centre_line,theta,circular):
         strand2pos.append(rb2)
 
     return strand1pos,strand2pos,normals1,normals2,tan_vals
+
+
+def generate_TEP(bp,centre_line,theta,circular):
+    """
+    Main function for generating the strand positions and normals for a duplex
+    
+    As we move around the centre-line, we rotate the particle
+    
+    v1 is a vector perpendicular to the tangent at the first TEP particle
+    
+    """
+
+    normals = []
+    
+    
+    # calculate the unit tangents at every base pair
+    # for circular dna len(tan_vals)=bp, otherwise len(tan_vals)=bp-1
+    tan_vals = []
+    old_point = centre_line[-1]
+    point = centre_line[0]
+    diff = np.array([point[0]-old_point[0],point[1]-old_point[1],point[2]-old_point[2]])
+    diff /= np.linalg.norm(diff)
+    tan_vals.append(diff)
+    old_point = centre_line[0]
+    for i in range(1,bp):
+        point = centre_line[i]
+        diff = np.array([point[0]-old_point[0],point[1]-old_point[1],point[2]-old_point[2]])
+        diff /=np.linalg.norm(diff)
+        tan_vals.append(diff)
+        old_point = point
+        
+    
+    # we need a vector perpendicular to the inital tangent
+    v1 = np.random.random_sample(3)
+    v1 -= tan_vals[0] * (np.dot(tan_vals[0], v1))
+    v1 /= np.linalg.norm(v1)
+    normals.append(-v1)
+      
+    for i in range(1,len(tan_vals)):   
+        # remove component of v2 in the direction of tangent
+        v1 -= v1*(np.dot(v1,tan_vals[i]))
+        v1 /= np.linalg.norm(v1)
+        # rotate by theta and normalise
+        v1 = rot(v1,tan_vals[i],theta)
+        v1 /= np.linalg.norm(v1)
+    
+        normals.append(-v1)
+
+    return centre_line,normals,tan_vals
+
+
+
+
 
 def plot(list_vecs,ax,scatter=False):
     vecs = np.array(list_vecs)
@@ -249,9 +302,45 @@ def write_conf(conf_file_name,strand1pos,normals1,strand2pos,normals2,tan_vals,b
 
 
 
+def write_top_TEP(top_file_name,n,sequence,circular):
+    
+    top = open(top_file_name,"w")
+    top.write(str(n)+" 1"+"\n")
+    top.write(str(n)+" C"+"\n")
+    for i in range(n):
+        top.write(str(i)+ " 1 1 0.80 0.952319757 1.14813301 -0.0974657 0.940076"+ "\n")
+
+    top.close()
 
 
 
+def write_conf_TEP(conf_file_name,centre_line,normals,tan_vals,n,box):
+    conf = open(conf_file_name,"w")
+    conf.write("t = 0" + "\n")
+    conf.write("b = "+str(box)+" " +str(box)+" "+str(box) + "\n")
+    conf.write("E = 0" + "\n")
+    for i in range(0,n):
+        conf.write(str(centre_line[i][0]) + " " + str(centre_line[i][1]) + " " + str(centre_line[i][2])  \
+                         + " " +str(tan_vals[i][0]) + " " + str(tan_vals[i][1]) + " " + str(tan_vals[i][2]) \
+                             +" " + str(normals[i][0]) + " " + str(normals[i][1]) + " " + str(normals[i][2]) \
+                             + " 0 0 0 0 0 0" +"\n")
+
+    
+    conf.close()
+
+
+
+def write_conf_xyz(conf_file_name,centre_line,n):
+    conf = open(conf_file_name,"w")
+    conf.write(str(n) + "\n")
+    conf.write("\n")
+    for i in range(0,n):
+        # string = '{8}{8}{8}{8}\n'.format(i,centre_line[i][0],centre_line[i][2],centre_line[i][2])
+        conf.write('{:} {:8.3f}  {:8.3f}  {:8.3f}'.format("A",centre_line[i][0],centre_line[i][1],centre_line[i][2]))
+#        conf.write('%s %>lf  %>lf  %>lf' % (i,centre_line[i][0],centre_line[i][2],centre_line[i][2]))
+        conf.write('\n')
+
+    conf.close()
 
 
 

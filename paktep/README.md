@@ -40,10 +40,8 @@ persistence_length_logical=.False.
 To run PAKTEP simply use the follwing commands:
 
 ```bash
-./processor.exe
-trajectory.dat
-conf.conf
-top.top
+./main.exe
+input
 ```
 This should create up to 2 files: twist_writhe.dat and plectoneme.dat. If you set persistance_length_logical=.True., then the result is printed in the terminal.
 

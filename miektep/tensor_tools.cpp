@@ -48,8 +48,17 @@ void print_rank_2_tensor(Tensor<double,2> tens) {
     }
 }
 
+void print_rank_1_tensor(Tensor<double,1> tens) {
+    // Prints rank 1 tensor
+    Eigen::array<Index, 1> dims = tens.dimensions();
+    for(int alpha = 0; alpha < dims[0]; alpha++) {
+            cout << tens(alpha) << " ";
+        }
+        cout << "\n";
+}
 
-Tensor<double,1> get_slice(Tensor<double,2> input, int i) {
+
+Tensor<double,1> get_slice_rank2(Tensor<double,2> input, int i) {
     // This function slices a the ith column vector from a rank 2 tensor
     // Input: Rank 2 Tensor (n x m matrix)
     // Output: Rank 1 tensor (n dimensional vector)
@@ -60,6 +69,18 @@ Tensor<double,1> get_slice(Tensor<double,2> input, int i) {
     return slice;
 }
 
+Tensor<double,1> get_slice_rank3(Tensor<double,3> input, int i, int j) {
+    // This function slices a the ixj column vector from a rank 3 tensor of the form T(i,j,alpha)
+    // Input: Rank 3 Tensor (n x n x m  matrix)
+    // Output: Rank 1 tensor (m-dimensional vector)
+    Eigen::array<Eigen::Index, 3> dims = input.dimensions();
+    Eigen::array<long, 3> offsets = {i,j, 0};
+    Eigen::array<long, 3> extents = {1,1, dims[2]};
+    Tensor<double, 1> slice = input.slice(offsets, extents).reshape(Eigen::array<long, 1>{3});
+    return slice;
+}
+
+
 
 double norm2(Tensor<double,1> vec) {
     // Returns the squared norm of a vector (rank 1 tensor)
@@ -69,6 +90,14 @@ double norm2(Tensor<double,1> vec) {
         val += vec(i) * vec(i);
     }
     return val;
+}
+
+double dot(Tensor<double,1> vec1,Tensor<double,1> vec2) {
+    // Returns the dot product of two rank 1 tensors (vectors)
+    Eigen::array<IndexPair<int>, 1> product_dims = {IndexPair<int>{0, 0}};
+    Tensor<double, 0> prod = vec1.contract(vec2, product_dims);
+    double dotty = prod();
+    return dotty;
 }
 
 Tensor<double,2> get_noise(int np) {

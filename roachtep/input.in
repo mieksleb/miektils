@@ -1,6 +1,0 @@
-steps = 10
-dt = 0.02
-top = miek.top
-conf = miek.dat
-T = 300
-

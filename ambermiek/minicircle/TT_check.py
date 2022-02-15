@@ -13,7 +13,7 @@ import sys
 
 
 seq_file = sys.argv[1]
-TT = sys.argv[2]
+TT = int(sys.argv[2])
 
 seq_string = open(seq_file, "r").readlines()
 

@@ -4,19 +4,18 @@ module twist_writhe_fortran
 
 contains
 
-subroutine twist_writhe_xyz(bp,x1,y1,z1,x2,y2,z2,twist_integral,writhe_integral,circular)
+subroutine twist_writhe_xyz(bp,npoints,x1,y1,z1,x2,y2,z2,corr,ss_cop,twist_integral,writhe_integral,circular)
   ! This takes in the 2 sets of vectors each of length bp (or bp+1 if circular)
   ! x1,y1,z1 are lists of the components of the vectors which describe the backbone of strand1
   ! x2,y2,z2 are the components of the the list of vectors which descrive the backbone of strand2
   ! reverse is a logical which is True if one strand is to be reversed and False otherwise
 
   real :: twist_integral,writhe_integral
-  real, dimension(:), allocatable :: dum_x1,x1,y1,z1,x2,y2,z2
+  real, dimension(:), allocatable :: dum_x1,x1,y1,z1,x2,y2,z2,corr,ss_cop
   real, dimension(:), allocatable   :: tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
-  integer :: bp,npoints=1000,nx1,ny1,nz1,nx2,ny2,nz2,k=3,ier,i,step,length
+  integer :: bp,npoints,nx1,ny1,nz1,nx2,ny2,nz2,k=3,ier,i,step,length
   logical :: circular,reverse,energy_out,reverse1=.False.
-  character :: conf_file_name*20,top_file_name*20
-
+  character :: conf_file_name*50,top_file_name*50
 
   if (circular.eqv..False.) then
     length = bp
@@ -31,32 +30,29 @@ subroutine twist_writhe_xyz(bp,x1,y1,z1,x2,y2,z2,twist_integral,writhe_integral,
   end do
 
   ! calculate the splines of the x,y,z postions for both strands
-  ! by default we retain the direction of one spline, but allow for the second one to be reversed subject to the reverse logical
   call get_spline(dum_x1,x1,tx1,cx1,k,nx1,length,circular,ier)
   call get_spline(dum_x1,y1,ty1,cy1,k,ny1,length,circular,ier)
   call get_spline(dum_x1,z1,tz1,cz1,k,nz1,length,circular,ier)
   call get_spline(dum_x1,x2,tx2,cx2,k,nx2,length,circular,ier)
   call get_spline(dum_x1,y2,ty2,cy2,k,ny2,length,circular,ier)
   call get_spline(dum_x1,z2,tz2,cz2,k,nz2,length,circular,ier)
-
   ! call main subroutine 
   call twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx2,ty2,cy2,ny2,tz2,&
-                                            &cz2,nz2,circular,twist_integral,writhe_integral)
-
+                                            &cz2,nz2,corr,ss_cop,circular,twist_integral,writhe_integral)
 
 end subroutine twist_writhe_xyz
 
 
 
 subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,nx2,ty2,cy2,ny2,tz2&
-                                              &,cz2,nz2,circular,twist_integral,writhe_integral)
+                                              &,cz2,nz2,corr,ss_cop,circular,twist_integral,writhe_integral)
 
   real :: pi = 3.1415926535897932
-  real, dimension(:), allocatable   :: tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2
+  real, dimension(:), allocatable   :: tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2,corr
   integer                           :: ii,jj,srange,ier,k=3,nx1,ny1,nz1,nx2,ny2,nz2,bp,nuxx,nuyy,nuzz
   integer                           :: npoints,m,nnuxx,nnuyy,nnuzz,nsx,nsy,nsz
   logical                           :: circular,reverse
-  real                              :: twist_integral,writhe_integral
+  real                              :: twist_integral,writhe_integral,norm_0,norm0
   real                              :: bpinc
   real                              :: tsp,tsp2,delta_s,ds
   real, dimension(:), allocatable   :: uxx,uyy,uzz
@@ -66,7 +62,7 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   real, dimension(:), allocatable   :: m1xx,m1yy,m1zz,dmxx,dmyy,dmzz,duxx,duyy,duzz,xx,yy,zz
   real, dimension(:,:), allocatable :: duu
   real, dimension(:), allocatable   :: diff,tuxx,tuyy,tuzz,cnuxx,cnuyy,cnuzz,csx,csy,csz,cuxx,cuyy,cuzz
-  real, dimension(:), allocatable   :: tnuxx,tnuyy,tnuzz,tsx,tsy,tsz,ss,contour,bpi
+  real, dimension(:), allocatable   :: tnuxx,tnuyy,tnuzz,tsx,tsy,tsz,ss,contour,bpi,ss_cop
   real, dimension(:), allocatable   :: sx1,sy1,sz1,sx2,sy2,sz2,snuxx,snuyy,snuzz,dum_x2
 
 
@@ -84,7 +80,6 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   allocate(sx2(npoints))
   allocate(sy2(npoints))
   allocate(sz2(npoints))
-  
  ! calculate the base pair index (bpi) common to both strands
   if (circular.eqv..True.) then  
     bpinc = real(bp,4)/(real(npoints,4)-1)
@@ -95,7 +90,6 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   do ii=1,npoints
     bpi(ii)=(ii-1)*bpinc
   end do
-
 
  ! evaluate the splines in bpi, output is sij for i=x,y,z j=1,2
   call evaluate_spline(bpi,sx1,tx1,cx1,k,nx1,npoints,circular,ier,0)
@@ -123,11 +117,11 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   do ii=2,npoints
     ss(ii) = delta_s*(ii-1)
   end do
+
   allocate(dum_x2(npoints))
   do ii=1,npoints
     dum_x2(ii)=ii-1
   end do
-
 
   ! now we compute the spline objects t,c,k,n of the midpoint spline 
   call get_spline(contour,m1xx,tsx,csx,k,nsx,npoints,circular,ier)
@@ -183,20 +177,18 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
   snuxx(:)=uu(1,:)
   snuyy(:)=uu(2,:)
   snuzz(:)=uu(3,:)
-  
 
   ! we now do a spline fit to the components of uu
   call get_spline(ss,snuxx,tnuxx,cnuxx,k,nnuxx,npoints,circular,ier)
   call get_spline(ss,snuyy,tnuyy,cnuyy,k,nnuyy,npoints,circular,ier)
   call get_spline(ss,snuzz,tnuzz,cnuzz,k,nnuzz,npoints,circular,ier)
-  ! evalauate thje derivative of this new spline
+  ! evalauate the derivative of this new spline
   allocate(duxx(npoints))
   allocate(duyy(npoints))
   allocate(duzz(npoints))
   call evaluate_spline(ss,duxx,tnuxx,cnuxx,k,nnuxx,npoints,circular,ier,1)
   call evaluate_spline(ss,duyy,tnuyy,cnuyy,k,nnuyy,npoints,circular,ier,1)
   call evaluate_spline(ss,duzz,tnuzz,cnuzz,k,nnuzz,npoints,circular,ier,1)
-
   allocate(duu(3,npoints))
   duu(1,:)=duxx(:)
   duu(2,:)=duyy(:)
@@ -220,11 +212,26 @@ subroutine twist_writhe(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx2,cx2,n
         diff = diff / (sqrt(sum(diff**2)))**3
         tsp2 = tt(1,ii)*(tt(2,jj)*diff(3)-tt(3,jj)*diff(2)) + tt(2,ii)*(tt(3,jj)*diff(1)-tt(1,jj)*diff(3)) &
               &+ tt(3,ii)*(tt(1,jj)*diff(2)-tt(2,jj)*diff(1))
+       
         writhe_integral = writhe_integral + tsp2
       end if
     end do
   end do
-
+ ! allocate(corr(npoints))
+ !allocate(ss_cop(npoints))
+  corr = 0
+  ! the autocorrelation of the tangent vectors will be stored in the array corr
+  norm_0 = (dmxx(1)**2+dmyy(1)**2+dmzz(1)**2)**0.5
+  do ii=1,npoints
+    if (ii > 0) then
+      norm = (dmxx(ii)**2+dmyy(ii)**2+dmzz(ii)**2)**0.5
+      corr(ii)=(dmxx(1)*dmxx(ii)+dmyy(1)*dmyy(ii)+dmzz(1)*dmzz(ii))/norm
+    else
+      corr(ii) = 0
+    end if
+    ss_cop(ii) = ss(ii)
+  end do
+  corr(:) = corr(:)/norm_0
   twist_integral = twist_integral * ds / (2 * pi)
   writhe_integral = writhe_integral * ds**2 / (2 * pi) 
   

@@ -27,7 +27,7 @@ npoints = int(bp/300) # each segment is the length of 300 base pairs
 lpbp = 0.3897628551303122
 L = bp*lpbp
 box = 5
-pitch = 10.36
+pitch = 10.34
 
 
 
@@ -150,7 +150,7 @@ def closed_space_fill(width,height):
         point = point + np.array([0,0,-1])
         points.append(point)
     points.pop()
-    points.append(start)
+    # points.append(start)
     
     return points
         
@@ -160,10 +160,11 @@ def closed_space_fill(width,height):
 
 points = closed_space_fill(2,1)
 # if the structure is circular and periodic, then we remove the last element of the centre_lines
-if periodic == True:
-    del points[-1]
+# if periodic == True:
+#     del points[-1]
 
-bp = 4900
+n = len(points)
+bp = n*100
 circular = True         # circular boolean is true when structure is closed
 periodic = True         # periodic boolean is true when x(n)=x(1), i.e. the final position is equal to the first
 sequence_input = False  # sequence = True means a sequence file will be given
@@ -176,11 +177,13 @@ base_length = 0.7                   # distance from backbone to base
 pitch = 10.34                       # helical pitch of dsDNA
 npoints = bp
 
-
+sigma = -0.05
 Lk0 = bp/pitch # this is the relaxed linking number, deltaLk=0
-deltaLk = 0
+deltaLk = sigma*Lk0
     
-theta0 = Lk0*2*np.pi/bp
+Lk = Lk0+deltaLk
+
+theta0 = Lk*2*np.pi/bp
 
 if circular == False:
     if periodic == False:
@@ -195,14 +198,9 @@ else:
     length = bp
 
 
-# create the arclength range
-svals = np.linspace(0,49,length)
-ds = L/bp
-
-
 
 '''
-Constructing you centre-line
+Constructing your centre-line
 
 We begin with a general configuration describing the centre line of the dsDNA
 
@@ -224,6 +222,9 @@ contour_len = np.insert(contour_len, 0, 0)
 total_len = contour_len[-1]
 n = L/total_len
 
+
+
+
 centre_line = []
 for point in points:
     point = n*point
@@ -232,17 +233,13 @@ for point in points:
 
 box = 5*max(xrange,yrange,zrange)
 
-
-# if the structure is circular and periodic, then we remove the last element of the centre_lines
-# if periodic == True:
-#     del centre_line[-1]
-
-
 spline = pos_2_spline(centre_line,circular,reverse=False)
 
-    
+# create the arclength range
+svals = np.linspace(0,spline[1][-1]-1/bp,bp)
+ds = L/bp
+ 
 centre_line2 = evaluate_spline(spline,svals)
-
 
 strand1pos,strand2pos,normals1,normals2,tan_vals = generate(bp,centre_line2,theta0,circular)
 
@@ -254,33 +251,31 @@ ax = fig.add_subplot(111, projection='3d')
 plot(strand1pos,ax,scatter=False)
 
 
+phi = 0
+
+'''
+This part of the code ensures that the configuration has the correct linking number
+'''
+print("Correcting the Linking number")
+for j in range(0,2):
+
+    theta = theta0 + phi
+    
+    strand1pos,strand2pos,normals1,normals2,tan_vals = generate(bp,centre_line2,theta,circular)
+    spline1 = pos_2_spline(strand1pos,circular,reverse=False)
+    spline2 = pos_2_spline(strand2pos,circular,reverse=False)
+    twist, writhe = get_twist_writhe(spline1, spline2, npoints, circular, integral_type = "simple")
+    Lk = twist + writhe
+    print('twist is '+ str(twist))
+    print('writhe is '+ str(writhe))
+    print('linking number is  '+ str(Lk))
+    
+    deltaLk_actual = Lk - Lk0
+    difference = deltaLk_actual-deltaLk
+    phi = difference*2*np.pi/bp
     
 
-# phi = 0
-
-# '''
-# This part of the code ensures that the configuration has the correct linking number
-# '''
-# print("Correcting the Linking number")
-# for j in range(0,1):
-
-#     theta = theta0 + phi
-    
-#     strand1pos,strand2pos,normals1,normals2,tan_vals = generate(bp,centre_line,theta,circular)
-#     spline1 = pos_2_spline(strand1pos,circular,reverse=False)
-#     spline2 = pos_2_spline(strand2pos,circular,reverse=False)
-#     twist, writhe = get_twist_writhe(spline1, spline2, npoints, circular, integral_type = "simple")
-#     Lk = twist + writhe
-#     print('twist is '+ str(twist))
-#     print('writhe is '+ str(writhe))
-#     print('linking number is  '+ str(Lk))
-    
-#     deltaLk_actual = Lk - Lk0
-#     difference = deltaLk_actual-deltaLk
-#     phi = difference*2*np.pi/bp
-    
-
-
+strand1pos,strand2pos,normals1,normals2,tan_vals = generate(bp,centre_line2,theta,circular)
 
 
     
@@ -297,8 +292,8 @@ plot(strand1pos,ax,scatter=False)
 # theta += delta_ang_pbp
 # # strand1pos,strand2pos,normals1,normals2,tan_vals = generate(bp,centre_line,theta,circular,periodic)
 
-# expected_twist = theta*bp/(2*np.pi)
-# print("expected twist is "+str(expected_twist))
+expected_twist = theta*bp/(2*np.pi)
+print("expected twist is "+str(expected_twist))
     
 
 

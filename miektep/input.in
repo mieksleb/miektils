@@ -1,0 +1,8 @@
+steps = 10
+dt = 0.02
+top = miek_circ.top
+conf = miek_circ.dat
+T = 300
+traj = trajectory.xyz
+last_conf = last_conf.xyz
+

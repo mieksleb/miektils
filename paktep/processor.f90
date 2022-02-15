@@ -1,8 +1,9 @@
 module processor
   use readers
   use twist_writhe_fortran
-  use nemehunter
+!  use nemehunter
   use persistence_length
+  use bend
   implicit none
   
 contains
@@ -13,12 +14,12 @@ subroutine process(sim_type,bp,conf_name,top_name,twist_writhe_logical,plectonem
   integer :: i,nlines,bp,steps,io,step,neme_pos,j,ier,k=3,npoints=1000,nsteps,array_len,q,sim_type
   character ::  init_conf_name*40,traj_file_name*40,final_conf_name*40,conf_name*40,top_name*40
   logical :: reverse,circular,energy_out
-  real, dimension(:), allocatable :: x1,y1,z1,x2,y2,z2,x,ss,ss_sum,x2_rev,y2_rev,z2_rev
+  real, dimension(:), allocatable :: x1,y1,z1,x2,y2,z2,x,ss_cop,ss_sum,x2_rev,y2_rev,z2_rev
   real, dimension(:), allocatable :: tx1,ty1,tz1,tx2,ty2,tz2,cx1,cy1,cz1,cx2,cy2,cz2,dum_x1,corr,corr_sum
   integer :: nx1,ny1,nz1,nx2,ny2,nz2,tot_steps
   character :: frmt='(I5.5)', steps_string*10,filename*50
   character :: search_string*4, energy_out_string*4, top_line*20
-  character :: twist_writhe_file_name*40,plectoneme_file_name*40,am_string*20,top_file_name*40
+  character :: twist_writhe_file_name*40,plectoneme_file_name*40,am_string*20,top_file_name*40,corr_file_name*40
   real :: twist_integral,writhe_integral,a,am,neme_len
   logical :: twist_writhe_logical,plectoneme_position_logical,persistence_length_logical
   integer :: bases,circ_int,dum_int,m,n,nres,natoms,s
@@ -35,6 +36,7 @@ subroutine process(sim_type,bp,conf_name,top_name,twist_writhe_logical,plectonem
   ! read in the input files and create the output files
   twist_writhe_file_name = 'twist_writhe.dat'
   plectoneme_file_name = 'plectoneme.dat'
+  corr_file_name = 'correlation.dat'
 
   
 
@@ -56,13 +58,17 @@ subroutine process(sim_type,bp,conf_name,top_name,twist_writhe_logical,plectonem
     open(22,file=plectoneme_file_name)
   end if
 
+
   if (persistence_length_logical.eqv..True.) then
-    allocate(corr_sum(npoints))
-    allocate(corr(npoints))
-    allocate(ss_sum(npoints))
-    corr_sum=0
-    ss_sum=0
+    open(23,file=corr_file_name)
   end if
+  allocate(corr_sum(npoints))
+  allocate(corr(npoints))
+  allocate(ss_sum(npoints))
+  allocate(ss_cop(npoints))
+  corr_sum(:)=0
+  ss_sum(:)=0
+
 
   allocate(dum_x1(array_len))
    do i=1,array_len
@@ -86,8 +92,6 @@ subroutine process(sim_type,bp,conf_name,top_name,twist_writhe_logical,plectonem
       energy_out=.False.
     end if
     close(1)
-    write(*,*) energy_out
-
 
 
     io=0
@@ -127,78 +131,65 @@ subroutine process(sim_type,bp,conf_name,top_name,twist_writhe_logical,plectonem
   allocate(x2(array_len))
   allocate(y2(array_len))
   allocate(z2(array_len))
-
   ! we now perform the main loop which is over timesteps
   open(1,file=conf_name)
   nsteps = 0
-  do j=1,tot_steps-1
+  !do j = 1,2
+  do j=1,tot_steps
     nsteps = nsteps + 1
 !    write(*,"(a5,i4)") 'step ',nsteps
     call progress_bar(nsteps,tot_steps)
     if (sim_type.eq.1) then
-      read(1, "(a12,i6)") string, step
-      if (string(1:5)=='MODEL') then
-        call amber_block_reader(1,step,bp,x1,y1,z1,x2,y2,z2,.True.,circular)
-      end if
+      ! when we find the MODEL, that means a new timestep has begun
+      do
+        read(1, "(a12,i6)") string, step
+        if (string(1:5)=='MODEL') then
+          exit
+        end if
+      end do
+      call amber_block_reader(1,step,bp,x1,y1,z1,x2,y2,z2,.True.,circular)
     end if
-    ! now we can apply the routines
+
+! now we can apply the routines
+    !print *, x1(1)
+    !print *, x2(1)
+
+    !call get_angle(bp,x1,y1,z1,x2,y2,z2)
+
+
     if (twist_writhe_logical.eqv..True.) then
-      call twist_writhe_xyz(bp,x1,y1,z1,x2,y2,z2,twist_integral,writhe_integral,circular)
+      call twist_writhe_xyz(bp,npoints,x1,y1,z1,x2,y2,z2,corr,ss_cop,twist_integral,writhe_integral,circular)
       write(21,*) nsteps,twist_integral,writhe_integral
+      ss_sum(:) = ss_sum(:) + ss_cop(:)
+      corr_sum(:) = corr_sum(:) + corr(:)
     end if
   end do
 
-
-  
-    ! now we have loaded in the coordinates for the ith timestep interval, we can run any desired
-    ! scripts
-    
-    ! call main subroutines of desired quantities
-
-
-    ! twist and writhe are calculated from the module TWIST_WRITHE_FORTRAN
-!    if (twist_writhe_logical.eqv..True.) then
-!      call twist_writhe_xyz(bp,x1,y1,z1,x2,y2,z2,twist_integral,writhe_integral,circular)
-!      write(21,*) step,twist_integral,writhe_integral
-!    end if
-
-    ! plectoneme position is calculated from the module NEMEHUNTER
-!    if (plectoneme_position_logical.eqv..True.) then
-!      write(22,*) step,neme_pos,neme_len
-!    end if
-
-    ! persistence length is a property of the entire trajectory and correlations are appended to the global variable ss_sum   
-!    if (persistence_length_logical.eqv..True.) then
-    
-    ! we need to average the tangent tangent correlations over all timesteps
-!      ss_sum(:) = ss_sum(:) + ss(:)
-!      corr_sum(:) = corr_sum(:)+corr(:)
-!    end if
-
-!  end do
-
-
-
   ! persistence length is then calculated by finding the time average of the tangent-tangent correlations
   ! and applying an exponential fit, routines are called from the module PERSISTENCE_LENGTH
-!  if (persistence_length_logical.eqv..True.) then
-!    corr_sum(:) = corr_sum(:)/nsteps
-!    ss_sum(:) = ss_sum(:)/nsteps
-!    a = exp_fit(ss_sum,corr_sum,npoints)
-!    a = -1/a
-!    write(*,*) a
-!    am = 8.518E-1*a
-!    write(*,*) am
-!    write(am_string,"(F2.7)") am
-!    write(*,*) am_string
-!    write(*,*) "Persistence Length = "//adjustl(trim(am_string))//"nm"
-!  end if
+  if (persistence_length_logical.eqv..True.) then
+    corr_sum(:) = corr_sum(:)/tot_steps
+    ss_sum(:) = ss_sum(:)/tot_steps
+    do i = 1,npoints
+      write(23,*) ss_sum(i),corr_sum(i)
+    end do
+
+    a = exp_fit(ss_sum,corr_sum,npoints)
+    a = -1/a
+    write(*,*) a
+    am = 8.518E-1*a
+    write(*,*) am
+    write(am_string,"(F2.7)") am
+    write(*,*) am_string
+    write(*,*) "Persistence Length = "//adjustl(trim(am_string))//"nm"
+  end if
 
 
   ! close all files
   close(1)
   close(21)
   close(22)
+  close(23)
 
 
 end subroutine process

@@ -15,25 +15,37 @@ FLFLAGS = -g -O2 -fbackslash
 FDFLAGS = -g -Wall -Wextra
 
 # libraries needed for linking 
-LDFLAGS = -L${MIEKTILS}/paktep/dierckx -ldierckx
+LDFLAGS = -L${MIEKTILS}/paktep/dierckx -ldierckx -L/Users/michaelselby/lapack-3.10.0 -llapack
 
 # directory containing modules
 MODDIR = ${MIEKTILS}/paktep 
 
 # List of executables to be built within the package
-PRG_NAME = processor
+TEST_NAME = test
+TEST_SRC = $(TEST_NAME).f90
+TEST = $(TEST_NAME).exe
+TEST_OBJ = $(TEST_NAME).o
+
+PRG_NAME = main
 PRG_SRC = $(PRG_NAME).f90
 PROGRAM = $(PRG_NAME).exe
 PRG_OBJ = $(PRG_NAME).o
 
 # List of subroutines to be built within the package
-MODULES = persistence_length.f90 twist_writhe.f90 neme_hunter.f90 geom.f90 spline.f90 reader.f90
-SRCS = reader.f90 spline.f90 geom.f90 neme_hunter.f90 twist_writhe.f90 persistence_length.f90 $(PRG_SRC)
+
+TEST_MODULES = persistence_length.f90 twist_writhe.f90 geom.f90 spline.f90 bend.f90 readers.f90
+TEST_SRCS = readers.f90 bend.f90 spline.f90 geom.f90 twist_writhe.f90 persistence_length.f90 $(TEST_SRC)
+TEST_OBJECTS = $(TEST_SRCS:.f90=.o)
+TEST_SRC_OBJS =$(TEST_MODULES:.f90=.o)
+
+MODULES = processor.f90 persistence_length.f90 twist_writhe.f90 geom.f90 spline.f90 bend.f90 readers.f90
+SRCS = readers.f90 bend.f90 spline.f90 geom.f90 twist_writhe.f90 persistence_length.f90 processor.f90 test.f90 $(PRG_SRC)
 OBJECTS = $(SRCS:.f90=.o)
 SRC_OBJS =$(MODULES:.f90=.o)
 
 # "make" builds all
-all: $(PROGRAM) 
+test: $(TEST)
+all: $(TEST) $(PROGRAM) 
 
 
 # ======================================================================
@@ -44,9 +56,12 @@ all: $(PROGRAM)
 # used in order to list additional object files on which the
 # executable depends
 
+$(TEST): $(OBJECTS)
+	$(FCOMP) $(FCFLAGS) -o $@ $(TEST_OBJ) $(TEST_SRC_OBJS) -I$(MODDIR) $(LDFLAGS)
 
 $(PROGRAM): $(OBJECTS)
 	$(FCOMP) $(FCFLAGS) -o $@ $(PRG_OBJ) $(SRC_OBJS) -I$(MODDIR) $(LDFLAGS)
+
 
 # General rules for building prog.o from prog.f90 or prog.F90; $< is
 # used in order to list only the first prerequisite (the source file)

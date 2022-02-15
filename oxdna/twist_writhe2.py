@@ -61,7 +61,7 @@ bp = len(strand1._nucleotides)
 spline1 = get_bb_spline(strand1)
 spline2 = get_bb_spline(strand2, reverse = True)   
 
-def get_twist_writhe(spline1, spline2, npoints = 1000, circular = False, integral_type = "simple"):
+def get_twist_writhe(spline1, spline2, npoints = 10000, circular = False, integral_type = "simple"):
     
     """
     return the twist and writhe for a given configuration and 

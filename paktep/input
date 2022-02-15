@@ -3,4 +3,5 @@ topology = test/dv336t30.top
 conf = test/dv336t30_md5.pdb
 twist_writhe = 1
 plectoneme_pos = 0
-persistence_length = 0
+persistence_length = 1
+

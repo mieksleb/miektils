@@ -34,7 +34,7 @@ subroutine tangent_correlation(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx
   bpinc = (real(bp,4)-1)/(real(npoints,4)-1)
   do ii=1,npoints
     bpi(ii)=(ii-1)*bpinc
-  end do
+   end do
 
  ! evaluate the splines in bpi, output is sij for i=x,y,z j=1,2
   call evaluate_spline(bpi,sx1,tx1,cx1,k,nx1,npoints,circular,ier,0)
@@ -68,9 +68,9 @@ subroutine tangent_correlation(bp,npoints,tx1,cx1,nx1,ty1,cy1,ny1,tz1,cz1,nz1,tx
 
 
   ! now we compute the spline objects t,c,k,n of the midpoint spline 
-  call get_spline(contour,m1xx,tsx,csx,k,nsx,npoints,circular,reverse,ier)
-  call get_spline(contour,m1yy,tsy,csy,k,nsy,npoints,circular,reverse,ier)
-  call get_spline(contour,m1zz,tsz,csz,k,nsz,npoints,circular,reverse,ier)
+  call get_spline(contour,m1xx,tsx,csx,k,nsx,npoints,circular,ier)
+  call get_spline(contour,m1yy,tsy,csy,k,nsy,npoints,circular,ier)
+  call get_spline(contour,m1zz,tsz,csz,k,nsz,npoints,circular,ier)
 
   allocate(xx(npoints))
   allocate(yy(npoints))

@@ -69,8 +69,8 @@ def bernoulli_lemniscate(t):
 Parameters and checks
 
 '''
-func = lambda t: bernoulli_lemniscate(t)
-bp = 500
+func = lambda t: right_trefoil(t)
+bp = 1000
 circular = True         # circular boolean is true when structure is closed
 periodic = True         # periodic boolean is true when x(n)=x(1), i.e. the final position is equal to the first
 sequence_input = False  # sequence = True means a sequence file will be given
@@ -110,7 +110,7 @@ ds = L/bp
 
 
 '''
-Constructing you centre-line
+Constructing your centre-line
 
 We begin with a general configuration describing the centre line of the dsDNA
 
@@ -198,10 +198,7 @@ for j in range(0,2):
     
 
 
-
-
-    
-# The structure now has the correct linking number and major and minor grooving! We now need to check the
+# The structure now has the correct linking number/ We now need to check the
 # angle between the last base-pair and the first
 v10 = normals1[0]
 v2 = normals2[-1]
@@ -211,8 +208,7 @@ last_ang = np.arccos(np.dot(v2,v10))
 
 delta_ang = last_ang - theta
 delta_ang_pbp = delta_ang/bp # change in angle per base pair
-theta += delta_ang_pbp
-# strand1pos,strand2pos,normals1,normals2,tan_vals = generate(bp,centre_line,theta,circular,periodic)
+# theta += delta_ang_pbp
 
 expected_twist = theta*bp/(2*np.pi)
 print("expected twist is "+str(expected_twist))

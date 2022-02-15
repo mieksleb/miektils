@@ -129,7 +129,7 @@ subroutine amber_reader(pdb_file_name,top_file_name,step,bp,x1,y1,z1,x2,y2,z2,re
   integer :: i,bp,nlines,io,step,bases,circ_int,dum_int,m,n,nres,natoms,k,s
   integer(kind = 4) :: bpn 
   logical :: circular,reverse
-  character :: pdb_file_name*20,top_file_name*20,search_string*4,top_line*20,atom_name*4,a1*1
+  character :: pdb_file_name*40,top_file_name*40,search_string*4,top_line*20,atom_name*4,a1*1,str*4
   character :: base*1, second_line*20,resname*10,atom*4,word*10,line*20,string*128,altloc,icode,chains,segid*4,charge*2,element*2
   real :: tol=0.01,x,y,z,occ,temp
 
@@ -142,12 +142,6 @@ subroutine amber_reader(pdb_file_name,top_file_name,step,bp,x1,y1,z1,x2,y2,z2,re
   read(3,"(I8)") natoms
   read(3,"(I8,I8)") k,nres
   
-  circ_int = 1
-  if (circ_int.eq.1) then
-    circular=.True.
-  else
-    circular=.False.
-  end if
   bp = int(nres/2)
   write(*,"(i5,a21)") bp," base pairs detected"
 
@@ -174,7 +168,12 @@ subroutine amber_reader(pdb_file_name,top_file_name,step,bp,x1,y1,z1,x2,y2,z2,re
         if ( atom(1:1) == ' ' ) then
           atom = atom(2:)
         end if
-        if (atom=='P') then
+        if (resname=="DT5") then
+          str = "H05'"
+        else
+          str = "P"
+        end if
+        if (atom==str) then
           if(s.eq.1) then
             x1(bpn)=x
             y1(bpn)=y
@@ -222,6 +221,7 @@ subroutine amber_reader(pdb_file_name,top_file_name,step,bp,x1,y1,z1,x2,y2,z2,re
       else
         read(string,"(a6,i5,1x,a4,a1,a3,1x,a1,i4,a1,3x,3f8.3,2f6.2,6x,a4,a2,a2)",iostat=io) word,n,atom,altloc,resname,&
              chains,bpn,icode,x,y,z,occ,temp,segid,element,charge
+      write(*,*) resname
         if ( atom(1:1) == ' ' ) then
           atom = atom(2:)
         end if
@@ -283,7 +283,6 @@ subroutine oxdna_top_reader(top_file_name,bp,circular)
   read(top_line,*) bases,strands
   bp = int(bases/strands)
 
-  write(*,"(i5,a21)") bp," base pairs detected"
   read(3,"(A20)") second_line
   write(*,*) second_line
   read(second_line,"(i2,a1,i1,i3)") strandid,base,circ_int,dum_int
@@ -291,7 +290,6 @@ subroutine oxdna_top_reader(top_file_name,bp,circular)
     circular=.False.
   else
     circular=.True.
-    write(*,*) 'Circular DNA detected'
   end if
   close(3)
 
@@ -424,11 +422,11 @@ subroutine amber_block_reader(unit_num,step,bp,x1,y1,z1,x2,y2,z2,reverse,circula
   ! ESsentially a reworking of amber_reader but deisgned to be used in a loop
   ! NOTE: x1,y1,z1,x2,y2,z2 are not-allocated here
 
-  real, dimension(:), allocatable :: x1,y1,z1,x2,y2,z2,x2_rev,y2_rev,z2_rev
+  real, dimension(:), allocatable :: x1,y1,z1,x2,y2,z2,x_rev,y_rev,z_rev
   integer :: i,bp,nlines,io,step,bases,circ_int,dum_int,m,n,nres,natoms,k,s,unit_num,length
   integer(kind = 4) :: bpn 
   logical :: circular,reverse
-  character :: search_string*4,top_line*20,atom_name*4,a1*1
+  character :: search_string*4,top_line*20,atom_name*4,a1*1,str*4
   character :: base*1, second_line*20,resname*10,atom*4,word*10,line*20,string*128,altloc,icode,chains,segid*4,charge*2,element*2
   real :: tol=0.01,x,y,z,occ,temp
 
@@ -445,13 +443,18 @@ subroutine amber_block_reader(unit_num,step,bp,x1,y1,z1,x2,y2,z2,reverse,circula
       exit
     else if (string(1:3)=="TER") then
       s = s + 1
-    else
+    else if (string(1:4)=="ATOM") then
       read(string,"(a6,i5,1x,a4,a1,a3,1x,a1,i4,a1,3x,3f8.3,2f6.2,6x,a4,a2,a2)",iostat=io) word,n,atom,altloc,resname,&
            &chains,bpn,icode,x,y,z,occ,temp,segid,element,charge
       if ( atom(1:1) == ' ' ) then
         atom = atom(2:)
       end if
-      if (atom=='P') then
+      if (resname=="DT5") then
+        str = "H05'"
+      else
+        str = "P"
+      end if
+      if (atom==str) then
         if(s.eq.1) then
           x1(bpn)=x
           y1(bpn)=y
@@ -463,6 +466,7 @@ subroutine amber_block_reader(unit_num,step,bp,x1,y1,z1,x2,y2,z2,reverse,circula
           z2(bpn)=z
         end if
       end if
+    else
     end if
   end do
   if (circular.eqv..True.) then
@@ -475,17 +479,17 @@ subroutine amber_block_reader(unit_num,step,bp,x1,y1,z1,x2,y2,z2,reverse,circula
   end if
   
   if (reverse.eqv..True.) then
-    allocate(x2_rev(length))
-    allocate(y2_rev(length))
-    allocate(z2_rev(length))
+    allocate(x_rev(length))
+    allocate(y_rev(length))
+    allocate(z_rev(length))
     do i=1,length
-      x2_rev(i)=x2(length+1-i)
-      y2_rev(i)=y2(length+1-i)
-      z2_rev(i)=z2(length-i)
+      x_rev(i)=x1(length+1-i)
+      y_rev(i)=y1(length+1-i)
+      z_rev(i)=z1(length-i)
     end do
-  x2(:)=x2_rev(:)
-  y2(:)=y2_rev(:)
-  z2(:)=z2_rev(:)
+  x1(:)=x_rev(:)
+  y1(:)=y_rev(:)
+  z1(:)=z_rev(:)
   !deallocate(x2_rev(length))
   !deallocate(y2_rev(length))
   !deallocate(z2_rev(length))
@@ -493,5 +497,56 @@ subroutine amber_block_reader(unit_num,step,bp,x1,y1,z1,x2,y2,z2,reverse,circula
   
 end subroutine amber_block_reader
 
+subroutine amber_init_reader(pdb_file_name,bp,circular)
+
+  ! amber_init_reader obtains the logical circular via a search for terminal residues as well as the number of residues
+  ! required for explicit solvent simulations where the number of base pairs is not obtainable from the topology
+
+  character :: pdb_file_name*40,search_string*4,top_line*20,atom_name*4,a1*1,trunc_string*3
+  integer :: i,bp,nlines,io,step,bases,circ_int,dum_int,m,n,nres,natoms,k,s
+  integer(kind = 4) :: bpn
+  logical :: circular
+  character :: base*1, second_line*20,resname*10,atom*4,word*10,line*20,string*128,altloc,icode,chains,segid*4,charge*2,element*2
+  
+  ! strand assumed circular unless terminal residues can be found
+  circular=.True.
+
+  ! we must open the amber file to set the circular logical by looking for terminal residues
+  open(1, file=pdb_file_name, iostat=io)
+  s = 1
+  do
+    read (1,'(A)', iostat=io) string
+    trunc_string = string(1:3)
+    if (trunc_string=='END') then
+      exit
+    else if (trunc_string=="TER") then
+      exit
+    else
+      read(string,"(a6,i5,1x,a4,a1,a3,1x,a1,i4)",iostat=io) word,n,atom,altloc,resname,chains,bpn
+    end if
+
+    if (resname=='DT5') then
+      circular=.False.
+    else if (resname=='DT3') then
+      circular=.False.
+    else if (resname=='DG5') then
+      circular=.False.
+    else if (resname=='DG3') then
+      circular=.False.
+    else if (resname=='DC5') then
+      circular=.False.
+    else if (resname=='DC3') then
+      circular=.False.
+    else if (resname=='DA5') then
+      circular=.False.
+    else if (resname=='DA3') then
+      circular=.False.
+    end if
+  end do
+
+  bp = bpn
+  close(1)
+
+end subroutine amber_init_reader
 
 end module readers
