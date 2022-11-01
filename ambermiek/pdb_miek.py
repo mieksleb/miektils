@@ -163,8 +163,14 @@ class trajectory:
         self.nres = len(self.residues)
         
         sub_res = []
+        direction = residues[0][2]
+        if direction=="5":
+            direction += "3"
+        else:
+            direction += "5"
+            
         for res in residues:
-            if len(res) == 3 and res[2]=="5":
+            if len(res) == 3 and res[2]==direction[1]:
                 sub_res.append(res)
                 self.strand_list.append(strand(self.circular, sub_res))
                 sub_res = []
