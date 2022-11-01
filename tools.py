@@ -14,8 +14,15 @@ from mpl_toolkits.mplot3d import Axes3D
 from scipy import interpolate
 import scipy
 from scipy import integrate
+from mpmath import ellippi
 
 
+def isfloat(num):
+    try:
+        float(num)
+        return True
+    except ValueError:
+        return False
 
 pi2 = 2*np.pi
 
@@ -43,6 +50,15 @@ def norm(vec):
 
 def rot(omega, t, A, B):  #rotates vector B about axis A using Euler-Rodrigues formula
     return A*(np.dot(A,B))+np.cos(omega*t)*np.cross((np.cross(A, B)), A)+np.sin(omega*t)*(np.cross(A,B))
+
+
+def get_tangent(r,circular):
+    n = np.shape(r)[0] #number of particles
+    t = np.array([r[(i+1)%n,:]-r[i,:] for i in range(n)])
+    t /= np.sqrt((t ** 2).sum(-1))[..., np.newaxis]
+    if not circular:
+        np.delete(t,-1,axis=0)
+    return t
 
 
 #takes a snippet of a trajectory file at every (printed) timestep and returns a list of these snippets 
@@ -337,29 +353,29 @@ def vecs2spline(vecs, per, k):
 
 
 
-# def discrete_dbl_int(tt, uu, duu, xx, yy, zz, dx, dy, ss, circular = True):
-#     if circular:
-#         srange = range(len(ss)-1)
-#     else:
-#         srange = range(len(ss))
-#     twist_integral = 0
-#     writhe_integral = 0
-#     for ii in srange:
-#         triple_scalar_product = multidet(tt[ii], uu[ii], duu[ii])
-#         #triple_scalar_product = np.dot(tt[ii], np.cross(uu[ii], duu[ii]))
-#         twist_integral += triple_scalar_product 
-#         for jj in srange:
-#             # skip ii=jj and use symmetry in {ii, jj}
-#             if ii > jj:
-#                 diff = np.array([float(xx[ii]-xx[jj]), float(yy[ii] - yy[jj]), float(zz[ii] - zz[jj])])
-#                 diff_mag = np.sqrt(np.dot(diff, diff))
-#                 diff_frac = diff / (diff_mag ** 3)
-#                 triple_scalar_product = multidet((tt[ii]), tt[jj], diff_frac)
-#                 writhe_integral += triple_scalar_product
-#         # multiply by 2 because we exploited the symmetry in {ii, jj} to skip half of the integral
-#     twist_integral *= dx / (2 * np.pi)
-#     writhe_integral *= 1 * dx * dy / (2 * np.pi)
-#     return twist_integral, writhe_integral
+def discrete_dbl_int(tt, uu, duu, xx, yy, zz, dx, dy, ss, circular = True):
+    if circular:
+        srange = range(len(ss)-1)
+    else:
+        srange = range(len(ss))
+    twist_integral = 0
+    writhe_integral = 0
+    for ii in srange:
+        triple_scalar_product = multidet(tt[ii], uu[ii], duu[ii])
+        #triple_scalar_product = np.dot(tt[ii], np.cross(uu[ii], duu[ii]))
+        twist_integral += triple_scalar_product 
+        for jj in srange:
+            # skip ii=jj and use symmetry in {ii, jj}
+            if ii > jj:
+                diff = np.array([float(xx[ii]-xx[jj]), float(yy[ii] - yy[jj]), float(zz[ii] - zz[jj])])
+                diff_mag = np.sqrt(np.dot(diff, diff))
+                diff_frac = diff / (diff_mag ** 3)
+                triple_scalar_product = multidet((tt[ii]), tt[jj], diff_frac)
+                writhe_integral += triple_scalar_product
+        # multiply by 2 because we exploited the symmetry in {ii, jj} to skip half of the integral
+    twist_integral *= dx / (2 * np.pi)
+    writhe_integral *= 1 * dx * dy / (2 * np.pi)
+    return twist_integral, writhe_integral
 
 
 
@@ -426,10 +442,8 @@ def get_twist_writhe(spline1, spline2, npoints = 1000, circular = False, integra
 
     npoints: number of points for the discrete integration
     """
-
-    import scipy.interpolate
-    
-         
+    import scipy
+    from scipy.interpolate import splev, splrep
 
     s1xx, s1yy, s1zz = spline1[0]
     s2xx, s2yy, s2zz = spline2[0]
@@ -441,13 +455,13 @@ def get_twist_writhe(spline1, spline2, npoints = 1000, circular = False, integra
     bpi = np.linspace(smin, smax, npoints)
 
     # find the midpoint between the input splines, as a function of base pair index
-    m1xx = (scipy.interpolate.splev(bpi, s1xx) + scipy.interpolate.splev(bpi, s2xx)) / 2
-    m1yy = (scipy.interpolate.splev(bpi, s1yy) + scipy.interpolate.splev(bpi, s2yy)) / 2
-    m1zz = (scipy.interpolate.splev(bpi, s1zz) + scipy.interpolate.splev(bpi, s2zz)) / 2
+    m1xx = (splev(bpi, s1xx) + splev(bpi, s2xx)) / 2
+    m1yy = (splev(bpi, s1yy) + splev(bpi, s2yy)) / 2
+    m1zz = (splev(bpi, s1zz) + splev(bpi, s2zz)) / 2
     
-
     # contour_len[ii] is contour length along the midpoint curve of point ii
-    delta_s = [np.sqrt((m1xx[ii+1]-m1xx[ii])**2+(m1yy[ii+1]-m1yy[ii])**2+(m1zz[ii+1]-m1zz[ii])**2) for ii in range(len(bpi)-1)]
+    delta_s = np.array([np.sqrt((m1xx[ii+1]-m1xx[ii])**2+(m1yy[ii+1]-m1yy[ii])**2+(m1zz[ii+1]-m1zz[ii])**2) for ii in range(len(bpi)-1)])
+
     contour_len = np.cumsum(delta_s)
     contour_len = np.insert(contour_len, 0, 0)
 
@@ -455,114 +469,57 @@ def get_twist_writhe(spline1, spline2, npoints = 1000, circular = False, integra
     ss = np.linspace(contour_len[0], contour_len[-1], npoints)
 
     # get the splines as a function of contour length
-    msxx = scipy.interpolate.splrep(contour_len, m1xx, k = 3, s = 0, per = circular)
-    msyy = scipy.interpolate.splrep(contour_len, m1yy, k = 3, s = 0, per = circular)
-    mszz = scipy.interpolate.splrep(contour_len, m1zz, k = 3, s = 0, per = circular)
-    
+    msxx = splrep(contour_len, m1xx, k = 3, s = 0, per = circular)
+    msyy = splrep(contour_len, m1yy, k = 3, s = 0, per = circular)
+    mszz = splrep(contour_len, m1zz, k = 3, s = 0, per = circular)
 
-    xx = scipy.interpolate.splev(ss, msxx)
-    yy = scipy.interpolate.splev(ss, msyy)
-    zz = scipy.interpolate.splev(ss, mszz)
-    
-    
+    xx, yy, zz = splev(ss, msxx), splev(ss, msyy), splev(ss, mszz)
 
     # find the tangent of the midpoint spline. 
     # the tangent t(s) is d/ds [r(s)], where r(s) = (mxx(s), myy(s), mzz(s)). So the tangent is t(s) = d/ds [r(s)] = (d/ds [mxx(s)], d/ds [myy(s)], d/ds [mzz(s)])
     # get discrete array of normalised tangent vectors; __call__(xxx, 1) returns the first derivative
     # the tangent vector is a unit vector
-    dmxx = scipy.interpolate.splev(ss, msxx, 1)
-    dmyy = scipy.interpolate.splev(ss, msyy, 1)
-    dmzz = scipy.interpolate.splev(ss, mszz, 1)
+    dmxx, dmyy, dmzz = splev(ss, msxx, 1), splev(ss, msyy, 1), splev(ss, mszz, 1)
 
-    
-    
-    tt = list(range(len(ss)))
-    for ii in range(len(ss)):
-        tt[ii] = np.array([dmxx[ii], dmyy[ii], dmzz[ii]])
-  
-    
-    # get the normal vector via n(s) = dt(s)/ds = d^2/ds^2[r(s)]    
-    ddmxx = scipy.interpolate.splev(ss, msxx, 2)
-    ddmyy = scipy.interpolate.splev(ss, msyy, 2)
-    ddmzz = scipy.interpolate.splev(ss, mszz, 2)
-    nn = list(range(len(ss)))
-    for ii in range(len(ss)):
-        nn[ii] = np.array([ddmxx[ii], ddmyy[ii], ddmzz[ii]])
+    tt = np.array((dmxx,dmyy,dmzz)).T
  
-
     # we also need the 'normal' vector u(s) which points between the base pairs. (or between the spline fits through the backbones in this case)
     # n.b. these uxx, uyy, uzz are not normalised
-    uxx_bpi = scipy.interpolate.splev(bpi, s2xx) - scipy.interpolate.splev(bpi, s1xx)
-    uyy_bpi = scipy.interpolate.splev(bpi, s2yy) - scipy.interpolate.splev(bpi, s1yy)
-    uzz_bpi = scipy.interpolate.splev(bpi, s2zz) - scipy.interpolate.splev(bpi, s1zz)
+    uxx_bpi = splev(bpi, s2xx) - splev(bpi, s1xx)
+    uyy_bpi = splev(bpi, s2yy) - splev(bpi, s1yy)
+    uzz_bpi = splev(bpi, s2zz) - splev(bpi, s1zz)
 
     # get the normal vector spline as a function of contour length
-    suxx = scipy.interpolate.splrep(contour_len, uxx_bpi, k = 3, s = 0, per = circular)
-    suyy = scipy.interpolate.splrep(contour_len, uyy_bpi, k = 3, s = 0, per = circular)
-    suzz = scipy.interpolate.splrep(contour_len, uzz_bpi, k = 3, s = 0, per = circular)
+    suxx = splrep(contour_len, uxx_bpi, k = 3, s = 0, per = circular)
+    suyy = splrep(contour_len, uyy_bpi, k = 3, s = 0, per = circular)
+    suzz = splrep(contour_len, uzz_bpi, k = 3, s = 0, per = circular)
     
-
 
     # evaluate the normal vector spline as a function of contour length
-    uxx = scipy.interpolate.splev(ss, suxx)
-    uyy = scipy.interpolate.splev(ss, suyy)
-    uzz = scipy.interpolate.splev(ss, suzz)
+    uxx, uyy, uzz = splev(ss, suxx), splev(ss, suyy), splev(ss, suzz)
     
+    uu = np.array((uxx,uyy,uzz)).T
 
+    uu -= np.array([np.dot(tt, uu) * tt for tt, uu in zip(tt,uu)])
+    uu /= np.sqrt((uu ** 2).sum(-1))[..., np.newaxis]
 
-    uu = list(range(len(ss)))
-    for ii in list(range(len(ss))):
-        uu[ii] = np.array([uxx[ii], uyy[ii], uzz[ii]])
-        uu[ii] = uu[ii] - np.dot(tt[ii], uu[ii]) * tt[ii]
-        # the normal vector should be normalised
-        uu[ii] = normalize(uu[ii])
-        
         
     # and finally we need the derivatives of that vector u(s). It takes a bit of work to get a spline of the normalised version of u from the unnormalised one
-    nuxx = [vec[0] for vec in uu]
-    nuyy = [vec[1] for vec in uu]
-    nuzz = [vec[2] for vec in uu]
-    nusxx = scipy.interpolate.splrep(ss, nuxx, k = 3, s = 0, per = circular)
-    nusyy = scipy.interpolate.splrep(ss, nuyy, k = 3, s = 0, per = circular)
-    nuszz = scipy.interpolate.splrep(ss, nuzz, k = 3, s = 0, per = circular)
-    duxx = scipy.interpolate.splev(ss, nusxx, 1)
-    duyy = scipy.interpolate.splev(ss, nusyy, 1)
-    duzz = scipy.interpolate.splev(ss, nuszz, 1)
-    duu = list(range(len(ss)))
-    for ii in list(range(len(ss))):
-        duu[ii] = np.array([duxx[ii], duyy[ii], duzz[ii]])
+    nuxx = np.array(np.array([vec[0] for vec in uu]))
+    nuyy = np.array(np.array([vec[1] for vec in uu]))
+    nuzz = np.array(np.array([vec[2] for vec in uu]))
+    nusxx = splrep(ss, nuxx, k = 3, s = 0, per = circular)
+    nusyy = splrep(ss, nuyy, k = 3, s = 0, per = circular)
+    nuszz = splrep(ss, nuzz, k = 3, s = 0, per = circular)
+    
+    duxx, duyy, duzz = splev(ss, nusxx, 1), splev(ss, nusyy, 1), splev(ss, nuszz, 1)
 
+    duu = np.array((duxx,duyy,duzz)).T
+    
     
     ds = float(contour_len[-1] - contour_len[0]) / (npoints - 1)
     # do the integration w.r.t. s
- 
-    
-    
-    # now for the integration which we use numba fastmath capabilities for speed
-    def discrete_dbl_int(tt, uu, duu, xx, yy, zz, dx, dy, ss, circular = circular):
-        if circular:
-            srange = range(len(ss)-1)
-        else:
-            srange = range(len(ss))
-        twist_integral = 0
-        writhe_integral = 0
-        for ii in srange:
-            triple_scalar_product = multidet(tt[ii], uu[ii], duu[ii])
-            twist_integral += triple_scalar_product 
-            for jj in srange:
-                # skip ii=jj and use symmetry in {ii, jj}
-                if ii > jj:
-                    diff = np.array([xx[ii]-xx[jj], yy[ii] - yy[jj], zz[ii] - zz[jj]])
-                    diff_mag = np.sqrt(np.dot(diff, diff))
-                    diff_frac = diff / (diff_mag ** 3)
-                    triple_scalar_product = multidet((tt[ii]), tt[jj], diff_frac)
-                    writhe_integral += triple_scalar_product
-            
-        twist_integral *= dx / (2 * np.pi)
-        writhe_integral *= dx * dy / (2 * np.pi) # multiplied by 2 because we exploited the symmetry in {ii, jj} to skip half of the integral
-        return twist_integral, writhe_integral
-    
-    
+
     twist, writhe = discrete_dbl_int(tt, uu, duu, xx, yy, zz, ds, ds, ss, circular = True)
     
     return twist, writhe
@@ -762,3 +719,189 @@ def get_twist_writhe_fuller(spline1, spline2, old_writhe, t_old, n_old, npoints 
     twist, writhe = quad_int(circular = True)
     
     return twist, writhe
+
+
+def sn(u,m):
+    if abs(m) <= 1.0:
+        val = scipy.special.ellipj(u,m)[0]
+    else:
+        k = m**0.5
+        val = scipy.special.ellipj(u*k,1/m)[0]/k
+    return val
+
+
+def cn(u,m):
+    if abs(m) <= 1.0:
+        val = scipy.special.ellipj(u,m)[1]
+    else:
+        k = m**0.5
+        val = scipy.special.ellipj(u*k,1/m)[2]
+    return val
+
+
+def dn(u,m):
+    if abs(m) <= 1.0:
+        val = scipy.special.ellipj(u,m)[2]
+    else:
+        k = m**0.5
+        val = scipy.special.ellipj(u*k,1/m)[1]
+    return val
+
+
+def am(u,m):
+    if abs(m) <= 1.0:
+        val = scipy.special.ellipj(u,m)[3]
+    else:
+        val = np.arcsin(sn(u,m))
+    return val
+
+# define the incomplete elliptic integral of the second kind
+def E(theta,m):
+    if abs(m) <= 1.0:
+        val = scipy.special.ellipeinc(theta,m)
+    else:
+        m1 = 1.0/m
+        k = m**0.5
+        beta = np.arcsin(k*np.sin(theta))
+        val = k * (scipy.special.ellipeinc(beta,m1)-(1-m1)*scipy.special.ellipkinc(beta,m1))
+    return val
+        
+
+def F(theta,m):
+    if abs(m) <= 1.0:
+        val = scipy.special.ellipkinc(theta,m)
+    else:
+        m1 = 1.0/m
+        beta = np.arcsin(np.sin(theta)*m**0.5)
+        val = scipy.special.ellipkinc(beta,m1)/m**0.5
+        
+    return val
+
+def K(m):
+    return scipy.special.ellipk(m)
+def E_comp(m):
+    return scipy.special.ellipe(m)
+
+def Pi(n,m):
+    func = lambda theta : 1 / ( (1-n*np.sin(theta)**2) * (1 - m * np.sin(theta)**2)**0.5 )
+    val = scipy.integrate.quad(func, 0, np.pi/2)[0]
+    # val = ellippi(m,np.pi/2,m)
+    return val
+
+def Pi_inc(n,phi,m):
+    func = lambda theta : 1 / ( (1-n*np.sin(theta)**2) * (1 - m * np.sin(theta)**2)**0.5 )
+    val = scipy.integrate.quad(func, 0, phi)[0]
+    # val = ellippi(n,phi,m)
+    return val
+
+
+def set_axes_equal(ax):
+    '''Make axes of 3D plot have equal scale so that spheres appear as spheres,
+    cubes as cubes, etc..  This is one possible solution to Matplotlib's
+    ax.set_aspect('equal') and ax.axis('equal') not working for 3D.
+
+    Input
+      ax: a matplotlib axis, e.g., as output from plt.gca().
+    '''
+
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    x_middle = np.mean(x_limits)
+    y_range = abs(y_limits[1] - y_limits[0])
+    y_middle = np.mean(y_limits)
+    z_range = abs(z_limits[1] - z_limits[0])
+    z_middle = np.mean(z_limits)
+
+    # The plot bounding box is a sphere in the sense of the infinity
+    # norm, hence I call half the max range the plot radius.
+    plot_radius = 0.5*max([x_range, y_range, z_range])
+
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+    
+    
+def disc_curvature(r,circular):
+    """
+    Parameters
+    ----------
+    r : numpy array (bp,3)
+        array of positions, r(i,j) where i is base-pair index and j is coordinate index
+    circular : boolean
+        true if DNA is closed
+        false of DNA is linear
+
+    Returns
+    -------
+    curv : numpy array (bp)
+        curvature at each base-pair index
+
+    """
+    bp = np.shape(r)[0]
+    curv = np.zeros(bp)
+    diff =  np.array([r[(j+1)%bp,:] - r[j,:] for j in range(bp)])
+    diff /= np.sqrt((diff ** 2).sum(-1))[..., np.newaxis]
+    length = bp-1
+    if circular:
+        length +=1
+    delta_s = [np.sqrt((r[(ii+1)%bp,0]-r[ii,0])**2+(r[(ii+1)%bp,1]-r[ii,1])**2+(r[(ii+1)%bp,2]-r[ii,2])**2) for ii in range(length)]
+    
+    curv = np.array([np.linalg.norm((diff[(j+1)%bp,:] - diff[j,:])/(delta_s[j])) for j in range(length)])
+    return curv
+
+
+def radius_of_gyration(r):
+    n = np.shape(r)[0]
+    rad2 = 0
+    for i in range(n):
+        for j in range(n):
+            rad2 += np.dot(r[i,:]-r[j,:],r[i,:]-r[j,:])
+    rad2 /= (2*n**2)
+    rad = np.sqrt(rad2)
+    return rad    
+
+
+def get_angle(pos1,pos2):
+    from skspatial.objects import Line
+    
+    line1 = Line.best_fit(pos1)
+    line2 = Line.best_fit(pos2)
+    grad1 = line1.direction
+    grad2  = line2.direction
+    
+    costheta = np.dot(grad1,grad2)/(np.dot(grad1,grad1)*np.dot(grad2,grad2))**0.5
+    theta = np.arccos(costheta)*180/np.pi
+    return theta
+
+def get_angles(r,extent,circular):
+    """
+    Parameters
+    ----------
+    r : numpy array (bp,3)
+        array of positions, r(i,j) where i is base-pair index and j is coordinate index
+    circular : boolean
+        true if DNA is closed
+        false of DNA is linear
+
+    Returns
+    -------
+    angles : numpy array (bp)
+        angle formed at each base-pair index given extent in each direction
+
+    """
+    bp = np.shape(r)[0]
+    curv = np.zeros(bp)
+    diff1 =  np.array([r[(j+extent)%bp,:] - r[j,:] for j in range(bp)])
+    diff1 /= np.sqrt((diff1 ** 2).sum(-1))[..., np.newaxis]
+    
+    diff2 =  np.array([ - r[(j-extent)%bp,:] + r[j,:] for j in range(bp)])
+    diff2 /= np.sqrt((diff2 ** 2).sum(-1))[..., np.newaxis]
+    length = bp-1
+    if circular:
+        length +=1
+    angles = np.array([np.arccos(np.dot(diff1[i],diff2[i])) for i in range(length)])
+    angles *= 180/np.pi
+    return angles
