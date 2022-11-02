@@ -16,9 +16,9 @@ from molecular_contour import get_molecular_contour
 
 direc = "/Users/michaelselby/OneDrive - Nexus365/DPhil/Behnam/T_motifs_michael/"
 polarity = 3
-bulge = 5
+bulge = 3
 direc += str(polarity) + "E/" + str(bulge) + "/"
-crd = direc + str(polarity)+"E_"+str(bulge)+"_md9_nw.crd"
+crd = direc + str(polarity)+"E_"+str(bulge)+"_longrun_nw.crd"
 top = direc + str(polarity)+"E_"+str(bulge)+".top"
 
 def t_motif_angles(conf):
@@ -85,6 +85,7 @@ def t_motif_angles(conf):
         alpha = abs(alpha)
         beta = abs(beta)
     else:
+        print("boon")
         alpha = - abs(alpha)
         beta =  - abs(beta)
         
@@ -99,8 +100,8 @@ def t_motif_angles(conf):
 traj = pdb_miek.trajectory(crd,circular=False)
 res = traj.load_topology(top)
 
-# traj.process_configurations([("angles",t_motif_angles)], max_steps=1000)
-traj.process_configurations([("angles",t_motif_angles)])
+traj.process_configurations([("angles",t_motif_angles)], max_steps=2000)
+# traj.process_configurations([("angles",t_motif_angles)])
 dic = traj.quant_dict
 conf_test = traj.last_conf
 
@@ -118,9 +119,9 @@ with open(file_name, "w") as file:
     for alpha, beta, phi in zip(alpha_list,beta_list,phi_list):
         file.write("{:3.8f} {:3.8f} {:3.8f} \n".format(alpha, beta, phi))
 
-# av_alpha, std_alpha = np.mean(alpha_list), np.std(alpha_list)
-# av_beta, std_beta = np.mean(beta_list), np.std(beta_list)
-# av_phi, std_phi = np.mean(phi_list), np.std(phi_list)
+av_alpha, std_alpha = np.mean(alpha_list), np.std(alpha_list)
+av_beta, std_beta = np.mean(beta_list), np.std(beta_list)
+av_phi, std_phi = np.mean(phi_list), np.std(phi_list)
 
 # strand1, strand2, strand3, strand4 = conf_test.strand_list
 
