@@ -13,7 +13,8 @@ import tools
 import tools_fast_math 
 import miek_tools
 import copy
-# import molecular_contour
+import re
+
 
 
 list1 = ["resname","res_number","P","OP1","OP2","O5'","C5'","H5'","HO5'","H5''","N9","N7","N6",\
@@ -163,14 +164,14 @@ class trajectory:
         self.nres = len(self.residues)
         
         sub_res = []
-        direction = residues[0][2]
-        if direction=="5":
-            direction += "3"
+        self.direction = residues[0][2]
+        if self.direction=="5":
+            self.direction += "3"
         else:
-            direction += "5"
+            self.direction += "5"
             
         for res in residues:
-            if len(res) == 3 and res[2]==direction[1]:
+            if len(res) == 3 and res[2]==self.direction[1]:
                 sub_res.append(res)
                 self.strand_list.append(strand(self.circular, sub_res))
                 sub_res = []
@@ -192,134 +193,7 @@ class trajectory:
 
         
        
-    def add_configurations(self,max_steps=100000,scale=1.0):
-        """
-        the method appends configuration objects to the config_list
-
-        Return
-        -------
-        None.
-
-        """
-        self.config_list = []
-        if self.file_type == "pdb":
-            with open(self.file_name,"r") as file:
-                for line in file:
-                    split_line = line.split()
-                    word = split_line[0]
-                    if word=="MODEL":
-                        bimatch = 1
-                        step = int(split_line[1])
-                        if step > max_steps:
-                            break
-                        base_dict = {}
-                        base_dict = dict.fromkeys(list1)
-                        config = configuration(step) # initalize a configuration class for new time step
-                        strand1 = strand(self.circular)
-                    elif (word=="ATOM"):
-                        atom = split_line[2]
-                        resname = split_line[3]
-                        bi = int(split_line[4])
-                        # bi = int(split_line[5])
-                        x,y,z = float(split_line[5]),float(split_line[6]),float(split_line[7])
-                        x *= scale
-                        y *= scale
-                        z *= scale
-                        
-                        if bi==bimatch:   # if base index matches, add atom to the base dictionary
-                            base_dict["resname"] = resname
-                            base_dict["res_number"] = bi
-                            keys = base_dict.keys()
-                            if atom in keys:
-                                base_dict[atom] = np.array([x,y,z])
-          
-                        else:                 
-                            base1 = base(base_dict)
-                            strand1.add_base(base1) # add base to the configuration class
-                            base_dict = {}          # reset the base dictionary
-                            base_dict = dict.fromkeys(list1)
-                            base_dict["resname"] = resname
-                            keys = base_dict.keys()
-                            if atom in keys:
-                                base_dict[atom] = np.array([x,y,z])
-                            bimatch = bi # increments the base index by one
-                    elif word=="TER":
-                        strand1.add_base(base1) # add base to the configuration class
-                        config.add_strand(strand1)             
-                        strand1 = strand(self.circular)
-                        bimatch += 1 # this just means next strand doesn't pick up last residue of last strand
-                    elif word=="ENDMDL":
-                        self.config_list.append(config)
-                    else:
-                        pass
-        else:
-            nres = len(self.residues)
-            i = 0
-            base_dict = {}          # reset the base dictionary
-            base_dict = dict.fromkeys(list1)
-            step = 0
-            config = configuration(step)
-            skip = False
-            nskip = 0
-            with open(self.file_name,"r") as file:
-                long_line = []
-                res_n = self.residues[0]
-                atoms, natoms = get_atoms(res_n)
-                strand1 = strand(self.circular)
-                strand2 = strand(self.circular)
-                for line in file:
-                    if skip:
-                        skip = False
-                        nskip += 1
-                        continue
-                    else:
-                        split_line = line.split()
-                        long_line += split_line
-                        if len(long_line) >= 3*natoms:
-                            base_dict["resname"] = res_n
-                            j = 0
-                            for atom in atoms:
-                                x,y,z = float(long_line[j]),float(long_line[j+1]),float(long_line[j+2])
-                                base_dict[atom] = np.array([x,y,z])
-                                j += 3
-                                
-                            
-                            remainder = len(long_line) - 3*natoms
-                            long_line = split_line[-remainder:]
-                            if remainder == 0:
-                                long_line = []
-                                
-                            if i < int(nres/2):
-                                base1 = base(base_dict)
-                                strand1.add_base(base1)
-
-                            elif int(nres/2) <= i < nres:
-                                base1 = base(base_dict)
-                                strand2.add_base(base1)
-                            if i == int(nres/2-1):
-                                config.add_strand(strand1)
  
-                            if i == nres - 1 :
-                                i = -1
-                                config.add_strand(strand2)
-                                strand1 = strand(self.circular)
-                                strand2 = strand(self.circular)
-                                config = configuration(step)
-                                self.config_list.append(config)
-                                step += 1
-                                skip = True
-                                
-                            i += 1  #increment residue index by one, will be zero if was previously nres-1
-                            res_n = self.residues[i]
-                            
-                            atoms, natoms = get_atoms(res_n)
-                            base_dict = {}          # reset the base dictionary
-                            base_dict = dict.fromkeys(list1)
-
-                            # base1 = base(base_dict)
-                            
-        self.nsteps = len(self.config_list)
-        
     def process_configurations(self, list_of_tups, max_steps=100000):
         """
         
@@ -398,23 +272,7 @@ class trajectory:
                         strand1 = strand(self.circular)
                         bimatch += 1 # this just means next strand doesn't pick up last residue of last strand
                     elif word=="ENDMDL":
-                        if twistwrithe:
-                            strand1 = config.strand_list[0]
-                        
-                            strand1.get_bb_list()
-                            strand1pos = strand1.bb_list
-                            
-                            strand2 = config.strand_list[1]
-                            strand2.get_bb_list()
-                            strand2pos = strand2.bb_list
-                            spline1 = tools.get_spline(strand1pos, per=self.circular,reverse=True)
-                            spline2 = tools.get_spline(strand2pos,per=self.circular,reverse=False)
-                            twist, writhe = tools_fast_math.get_twist_writhe(spline1, spline2, npoints=2000)
-
-                            self.writhe_list.append(writhe)
-                            self.twist_list.append(twist)
-                            print(twist)
-                            print(writhe)
+                        0
                     else:
                         pass
         else:
@@ -430,19 +288,28 @@ class trajectory:
                 base_dict = dict.fromkeys(list1)
                 atoms, natoms = get_atoms(res)
                 base_dict["resname"] = res
+                first_line = file.readline()
+                
+                if len(re.findall("-?\d*\.\d{3}", first_line)) > 0: # skip first line if there are no coordinates (eg Generated by Cpptraj)
+                    file.seek(0)
+                
                 for line in file:
                     if skip == True:
                         skip = False
                     else:
                         split_line = line.split()
+                        try:
+                            split_line = [float(val) for val in split_line]
+                        except ValueError:
+                            split_line = re.findall("-?\d*\.\d{3}", line)
+                            split_line = [float(val) for val in split_line]
                         long_line += split_line
-    
                         if len(long_line) >= 3 * natoms:                             
                             j = 0
                             for atom in atoms:
-                                x,y,z = float(long_line[j]),float(long_line[j+1]),float(long_line[j+2])
-                                base_dict[atom] = np.array([x,y,z])
+                                x,y,z = long_line[j],long_line[j+1],long_line[j+2]
                                 j += 3
+                                base_dict[atom] = np.array([x,y,z])
                                 
                             base1 = base(base_dict)
                             config.strand_list[strand_i].add_base(base1)
@@ -452,8 +319,7 @@ class trajectory:
                             
                             if remainder == 0:
                                 long_line = []
-                                
-                             
+
                             if res_i == config.strand_list[strand_i].nres:
                                 res_i = 0
                                 strand_i += 1
@@ -462,10 +328,11 @@ class trajectory:
                                         self.quant_dict[tup[0]].append(tup[1](config))
                                     
                                     self.last_conf = config
-                                    print("Step:", step, end='\r', flush=True)
+                                    # print("Step:", step, end='\r', flush=True)
+                                    print("Step:", step)
                                     strand_i = 0                             
                                     step += 1                 
-                                    config = configuration(step)
+                                    config = configuration(step, direction=self.direction)
                                     config.load_strand_list(self.strand_list)
                                     skip = True
                                     if step > max_steps:
@@ -475,12 +342,7 @@ class trajectory:
                             res = config.strand_list[strand_i].res[res_i]
                             atoms, natoms = get_atoms(res)
                             base_dict["resname"] = res
-                                                
-
-                            
-                            
-
-            
+                                                 
 
 class strand:
     def __init__(self,circular,res):
@@ -556,9 +418,10 @@ class configuration:
     '''
     decribes a single time-step configuration
     '''
-    def __init__(self,step):
+    def __init__(self,step,direction="35"):
         self.step = step
         self.nstrands = 0
+        self.direction = direction
         
     def add_strands(self):
         self.strand_list.append(strand)
@@ -577,7 +440,7 @@ class configuration:
         '''
         Returns
         -------
-        mid_list, a list of the midpoints of a duplex. Can only be called after get_bb_list()
+        centres, a array of the midpoints of a duplex
 
         '''
         strand1 = self.strand_list[0]

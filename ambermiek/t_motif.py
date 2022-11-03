@@ -7,6 +7,7 @@ analysis of T_motif simulations
 
 @author: michaelselby
 """
+import sys
 import numpy as np
 import pdb_miek
 import tools
@@ -14,12 +15,13 @@ import tools_fast_math
 import matplotlib.pyplot as plt
 from molecular_contour import get_molecular_contour
 
-direc = "/Users/michaelselby/OneDrive - Nexus365/DPhil/Behnam/T_motifs_michael/"
-polarity = 3
-bulge = 3
+direc = sys.argv[1]
+polarity = sys.argv[2]
+bulge = sys.argv[3]
 direc += str(polarity) + "E/" + str(bulge) + "/"
 crd = direc + str(polarity)+"E_"+str(bulge)+"_longrun_nw.crd"
 top = direc + str(polarity)+"E_"+str(bulge)+".top"
+# crd = direc + "test.crd"
 
 def t_motif_angles(conf):
     from skspatial.objects import Line
@@ -42,27 +44,39 @@ def t_motif_angles(conf):
     strandApos = np.array(strand1.get_atom_list("C1'")[-length:])
     strandBpos = np.array(strand2.get_atom_list("C1'")[strand2.nres-length:])
 
-    ra = get_molecular_contour(length, strandApos, strandBpos, linear=True)
-    ra = ra[buff:-buff,:]
-    linea = Line.best_fit(ra)
-    grada = linea.direction
-    grada /= np.linalg.norm(grada)
+    r1 = get_molecular_contour(length, strandApos, strandBpos, linear=True)
+    r1 = r1[buff:-buff,:]
+    line1 = Line.best_fit(r1)
+    grad1 = line1.direction
+    grad1 /= np.linalg.norm(grad1)
     
     strandApos = np.array(strand1.get_atom_list("C1'")[:length-strand1.nres])
     strandBpos = np.array(strand2.get_atom_list("C1'")[:length])
 
-    rc = get_molecular_contour(length, strandApos, strandBpos, linear=True)
-    rc = rc[buff:-buff,:]
-    linec = Line.best_fit(rc)
-    gradc = linec.direction
-    gradc /= np.linalg.norm(gradc)
+    r2 = get_molecular_contour(length, strandApos, strandBpos, linear=True)
+    r2 = r2[buff:-buff,:]
+    line2 = Line.best_fit(r2)
+    grad2 = line2.direction
+    grad2 /= np.linalg.norm(grad2)
+    
+    
+    if polarity == "3":
+        ra, grada = r1, grad1
+        rc, gradc = r2, grad2
+        a_end = strand2.get_atom_list("C1'")[-3]
+        c_end = strand2.get_atom_list("C1'")[2]
+        b_end = strand4.get_atom_list("C1'")[2]
 
+    else:
+        rc, gradc = r1, grad1
+        ra, grada = r2, grad2
+        a_end = strand2.get_atom_list("C1'")[2]
+        c_end = strand2.get_atom_list("C1'")[-3]
+        b_end = strand4.get_atom_list("C1'")[-3]
+        
     # make sure all vectors are pointing in same direction by checking againt centre to end-point vector
-    # mid = np.array(strand1.get_atom_list("C1'")[int(strand1.nres/2)])
-    mid = np.array(strand4.get_atom_list("C1'")[-1])
-    a_end = strand2.get_atom_list("C1'")[0]
-    c_end = strand2.get_atom_list("C1'")[-1]
-    b_end = strand4.get_atom_list("C1'")[-1]
+    mid = np.array(strand1.get_atom_list("C1'")[int(strand1.nres/2)])
+    
     
     for end, grad in zip([a_end,b_end,c_end], [grada,gradb,gradc]):
         if np.dot(end - mid, grad) < 0:
@@ -85,7 +99,7 @@ def t_motif_angles(conf):
         alpha = abs(alpha)
         beta = abs(beta)
     else:
-        print("boon")
+        print("blep")
         alpha = - abs(alpha)
         beta =  - abs(beta)
         
@@ -95,17 +109,18 @@ def t_motif_angles(conf):
     else:
         phi = - abs(phi)
         
+        
+    print(alpha,beta,phi)
+        
     return alpha, beta, phi
 
 traj = pdb_miek.trajectory(crd,circular=False)
+traj.polarity = polarity
 res = traj.load_topology(top)
 
-traj.process_configurations([("angles",t_motif_angles)], max_steps=2000)
-# traj.process_configurations([("angles",t_motif_angles)])
+# traj.process_configurations([("angles",t_motif_angles)], max_steps=2000)
+traj.process_configurations([("angles",t_motif_angles)])
 dic = traj.quant_dict
-conf_test = traj.last_conf
-
-alpha, beta, phi = t_motif_angles(conf_test)
 
 alpha_list, beta_list, phi_list = [], [], []
 
@@ -122,6 +137,12 @@ with open(file_name, "w") as file:
 av_alpha, std_alpha = np.mean(alpha_list), np.std(alpha_list)
 av_beta, std_beta = np.mean(beta_list), np.std(beta_list)
 av_phi, std_phi = np.mean(phi_list), np.std(phi_list)
+
+
+# conf_test = traj.last_conf
+
+
+# alpha, beta, phi = t_motif_angles(conf_test)
 
 # strand1, strand2, strand3, strand4 = conf_test.strand_list
 

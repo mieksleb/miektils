@@ -7,18 +7,19 @@ analysis and plot of t_motif data
 
 @author: michaelselby
 """
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
 
-polarities = [3]
-bulges = [3,4,5]
+polarities = [3,5]
+bulges = [3,4,5,6,7,8,9]
 
 list_of_dics = []
 
 for polarity in polarities:
     for bulge in bulges:
-        direc = "/Users/michaelselby/OneDrive - Nexus365/DPhil/Behnam/T_motifs_michael/"
+        direc = sys.argv[1]
         alphas, betas, phis = [], [], []
         direc += str(polarity) + "E/" + str(bulge) + "/"
         with open( direc + "angles.txt", "r") as file:
