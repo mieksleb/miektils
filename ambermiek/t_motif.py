@@ -99,7 +99,7 @@ def t_motif_angles(conf):
         alpha = abs(alpha)
         beta = abs(beta)
     else:
-        print("blep")
+        # print("blep")
         alpha = - abs(alpha)
         beta =  - abs(beta)
         
@@ -110,7 +110,7 @@ def t_motif_angles(conf):
         phi = - abs(phi)
         
         
-    print(alpha,beta,phi)
+    # print(alpha,beta,phi)
         
     return alpha, beta, phi
 

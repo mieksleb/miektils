@@ -328,8 +328,8 @@ class trajectory:
                                         self.quant_dict[tup[0]].append(tup[1](config))
                                     
                                     self.last_conf = config
-                                    # print("Step:", step, end='\r', flush=True)
-                                    print("Step:", step)
+                                    print("Step:", step, end='\r', flush=True)
+                                    # print("Step:", step)
                                     strand_i = 0                             
                                     step += 1                 
                                     config = configuration(step, direction=self.direction)
