@@ -164,11 +164,13 @@ class trajectory:
         self.nres = len(self.residues)
         
         sub_res = []
-        self.direction = residues[0][2]
+        self.direction = self.residues[0][2]
+        
         if self.direction=="5":
             self.direction += "3"
         else:
             self.direction += "5"
+            
             
         for res in residues:
             if len(res) == 3 and res[2]==self.direction[1]:
@@ -182,6 +184,7 @@ class trajectory:
         
         print("Amber topolgy loaded.\n")
         print( str(self.nres) + " residues and " +str(self.nstrand) + " strands detected")
+        print("Strands point in " + str(self.direction[0]) + "' -> " + str(self.direction[1]) + "' direction.")
         for i, strandy in enumerate(self.strand_list):
             print("Strand " + str(i+1) + " has " + str(len(strandy.res)) + " residues.")
             
@@ -278,7 +281,7 @@ class trajectory:
         else:
             step = 1
             skip = False
-            config = configuration(step)
+            config = configuration(step,direction=self.direction)
             config.load_strand_list(self.strand_list)
             with open(self.file_name,"r") as file:
                 long_line = []
@@ -328,7 +331,7 @@ class trajectory:
                                         self.quant_dict[tup[0]].append(tup[1](config))
                                     
                                     self.last_conf = config
-                                    print("Step:", step, end='\r', flush=True)
+                                    # print("Step:", step, end='\r', flush=True)
                                     # print("Step:", step)
                                     strand_i = 0                             
                                     step += 1                 
