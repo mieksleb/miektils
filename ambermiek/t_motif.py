@@ -46,11 +46,11 @@ def t_motif_angles(conf):
         strand3.reverse_strand()
         
     
-    # a_end = end_base_1.get_atom("C1'")
-    # c_end = end_base_2.get_atom("C1'")
+    a_end = end_base_1.get_atom("C1'")
+    c_end = end_base_2.get_atom("C1'")
     
-    a_end = end_base_2.get_atom("C1'")
-    c_end = end_base_1.get_atom("C1'")
+    # a_end = end_base_2.get_atom("C1'")
+    # c_end = end_base_1.get_atom("C1'")
     
     strandApos = np.array(strand4.get_atom_list("C1'"))
       
@@ -101,10 +101,10 @@ def t_motif_angles(conf):
     grad2 /= np.linalg.norm(grad2)
     
 
-    ra, grada = r1, grad1
-    rc, gradc = r2, grad2
-    # rc, gradc = r1, grad1
-    # ra, grada = r2, grad2
+    # ra, grada = r1, grad1
+    # rc, gradc = r2, grad2
+    rc, gradc = r1, grad1
+    ra, grada = r2, grad2
 
 
     # make sure all vectors are pointing in same direction by checking againt centre to end-point vector 
@@ -169,7 +169,7 @@ av_alpha, std_alpha = np.mean(alpha_list), np.std(alpha_list)
 av_beta, std_beta = np.mean(beta_list), np.std(beta_list)
 av_phi, std_phi = np.mean(phi_list), np.std(phi_list)
 
-chun_alpha = np.mean([abs(a) for a in alpha_list])
+# chun_alpha = np.mean([abs(a) for a in alpha_list])
 
 
 

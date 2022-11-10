@@ -29,6 +29,14 @@ for polarity in polarities:
                 alphas.append(alpha)
                 betas.append(beta)
                 phis.append(phi)
+                
+        if polarity == 3 and bulge == 8:
+            alphas = [abs(alpha) for alpha in alphas ]
+            betas = [abs(beta) for beta in betas]
+            plt.plot(alphas)
+            plt.plot(betas)
+            plt.plot(phis)
+            plt.show() 
         
         if polarity == 3 and bulge == 9:
             alphas = alphas[3000:]
@@ -36,16 +44,16 @@ for polarity in polarities:
             phis = phis[3000:]
             
         if polarity == 3 and bulge == 7:
-            alphas = [alpha for alpha in alphas if alpha > 0]
-            betas = [beta for beta in betas if beta > 0]
+            # alphas = [alpha for alpha in alphas if alpha > 0]
+            # betas = [beta for beta in betas if beta > 0]
+            alphas = [abs(alpha) for alpha in alphas ]
+            betas = [abs(beta) for beta in betas]
             
         if polarity == 3 and bulge == 8:
-            plt.plot(alphas)
-            plt.plot(betas)
-            plt.plot(phis)
-            plt.show() 
-            alphas = [alpha for alpha in alphas if alpha > 0]
-            betas = [beta for beta in betas if beta > 0]
+            phis = [phi for i,phi in enumerate(phis) if alphas[i] > 0]
+            alphas = [abs(alpha) for alpha in alphas ]
+            betas = [abs(beta) for beta in betas]
+            
         dic = {}
         dic["polarity"] = polarity
         dic["bulge"] = bulge

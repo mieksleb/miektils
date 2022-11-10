@@ -5,7 +5,8 @@ Created on Mon Oct 24 15:13:56 2022
 
 @author: michaelselby
 """
-import molecular_contour
+import sys
+import miek_tools
 import pdb_miek
 
 # crd = "minicircle/Hussain/MDNA/dv160t0_md9_nw.trj"
@@ -14,15 +15,38 @@ import pdb_miek
 # top = "minicircle/Hussain/MDNA/dv160t0.top"
 
 
+crd = sys.argv[1]
+top = sys.argv[2]
+xyz = sys.argv[3]
+circ = sys.argv[4]
+
+if int(circ) == 1:
+    circular = True
+else:
+    circular = False
+
+# crd = "minicircle/Hussain/MTTD5/dv160t0tt5_longrun_nw.trj"
+# top = "minicircle/Hussain/MTTD5/dv160t0tt5.top"
 # xyzfile = "minicircle/Hussain/molecular_contour_MTTD5.xyz"
+
+
+# crd = "minicircle/Hussain/MDNA/dv160t0_longrun_nw.trj"
+# top = "minicircle/Hussain/MDNA/dv160t0.top"
 # xyzfile = "minicircle/Hussain/molecular_contour_MDNA.xyz"
-# xyzfile = "TT_40/MTTD/molecular_contour_MTTD.xyz"
-# xyzfile = "TT_40/MDNA/molecular_contour.xyz"
 
 
-crd = "minicircle/Hussain/MDNA/dv160t0_md9_nw.trj"
-top = "minicircle/Hussain/MDNA/dv160t0.top"
-xyzfile = "minicircle/Hussain/molecular_contour_MDNA.xyz"
-traj = pdb_miek.trajectory(crd,circular=True)
+
+traj = pdb_miek.trajectory(crd,circular=circular)
 res = traj.load_topology(top)
-traj.process_configurations(molecular_contour=True, mol_cont_file=xyzfile)
+traj.process_configurations([("molecular contour", miek_tools.mol_cont)], max_steps=20)
+
+with open(xyz,"w") as file:
+    list_of_quants = traj.quant_dict["molecular contour"]
+    file.write(str(int(traj.nres/traj.nstrand))+ "\n")
+    file.write("\n")
+    for long_array in list_of_quants:
+        for r1 in long_array:
+            line = "C "+ str(r1[0])+" "+str(r1[1])+" " +str(r1[2])+ "\n"        
+            file.write(line)
+        file.write("\n")
+        file.write("\n")

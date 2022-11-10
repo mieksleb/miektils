@@ -9,7 +9,7 @@ Collection of tools for calculating quantities using pdb_miek classes such as co
 """
 import numpy as np
 from tools import get_angle
-from molecular_contour import HAXIS, CAXIS, get_twist, setZ
+from molecular_contour import get_molecular_contour
 from numba import njit
 
 
@@ -33,7 +33,7 @@ def bending_angle(conf):
     return theta
         
 
-def mol_cont(file, conf, buffer=12):
+def mol_cont(conf, buffer=5):
     """
     Function is called during pdb_miek.trajectory.process_configurations()
     to write additonal lines to molecular contour file
@@ -48,32 +48,14 @@ def mol_cont(file, conf, buffer=12):
 
     bp = len(strandApos)
 
-    centres = (strandApos + strandBpos)/2
-    diff = - strandApos + strandBpos
-    diff /= np.sqrt((diff ** 2).sum(-1))[..., np.newaxis]
-
-    new_centres = np.array([(centres[(i+1)%bp,:]+centres[i,:])/2 for i in range(bp)])
-
-    rC = HAXIS(bp, new_centres, strandApos)
-
-    zvals = np.array([rC[(j+1)%bp,:] - rC[(j-1)%bp,:] for j in range(bp)])
-    zvals /= np.sqrt((zvals ** 2).sum(-1))[..., np.newaxis]
+    r1 = get_molecular_contour(bp, strandApos, strandBpos, circular=conf.circular)
     
     
-    # newdiff = np.array([np.dot( setZ(zvals),diff ) for z, diff in zip(zvals,diff)])
-
-    
-    theta_vals = np.array([get_twist(diff[i,:],diff[(i+1)%bp,:],zvals[i]) for i in range(bp) ])
-    
-    r1 = CAXIS(bp,centres,theta_vals)
-    
-    
-    if strandA.circular==False: 
+    if conf.circular==False: 
         r1 = r1[buffer:bp-buffer,:]
+        
+    return r1
 
 
-    for i in range(np.shape(r1)[0]):
-        line = "C "+ str(r1[i,0])+" "+str(r1[i,1])+" " +str(r1[i,2])+ "\n"        
-        file.write(line)
         
         

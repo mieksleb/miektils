@@ -109,6 +109,8 @@ class trajectory:
         self.file_name = file_name
         print("Processing " + self.file_name)
         self.circular = circular
+        if self.circular:
+            print("Circular configuration")
         self.file_type = self.get_file_type()
         
     def get_steps_pdb(self):
@@ -145,6 +147,7 @@ class trajectory:
 
         '''
         lines = open(top_file,"r").readlines()
+        print("Reading " + top_file + " as topology file.")
         res_bool = False
         for line in lines:
             if line.strip() == "%FLAG RESIDUE_LABEL":
@@ -163,28 +166,36 @@ class trajectory:
         self.residues = residues
         self.nres = len(self.residues)
         
-        sub_res = []
-        self.direction = self.residues[0][2]
-        
-        if self.direction=="5":
-            self.direction += "3"
+        if self.circular:
+            self.direction = "35"
+            sub_res = self.residues[:int(self.nres/2)]
+            self.strand_list.append(strand(self.circular, sub_res))
+            sub_res = self.residues[int(self.nres/2):]
+            self.strand_list.append(strand(self.circular, sub_res))
         else:
-            self.direction += "5"
+            sub_res = []
+            self.direction = self.residues[0][2]
             
-            
-        for res in residues:
-            if len(res) == 3 and res[2]==self.direction[1]:
-                sub_res.append(res)
-                self.strand_list.append(strand(self.circular, sub_res))
-                sub_res = []
-            else:    
-                sub_res.append(res)
+            if self.direction=="5":
+                self.direction += "3"
+            else:
+                self.direction += "5"
+                
+                
+            for res in residues:
+                if len(res) == 3 and res[2]==self.direction[1]:
+                    sub_res.append(res)
+                    self.strand_list.append(strand(self.circular, sub_res))
+                    sub_res = []
+                else:    
+                    sub_res.append(res)
                 
         self.nstrand = len(self.strand_list)
         
         print("Amber topolgy loaded.\n")
         print( str(self.nres) + " residues and " +str(self.nstrand) + " strands detected")
-        print("Strands point in " + str(self.direction[0]) + "' -> " + str(self.direction[1]) + "' direction.")
+        if not self.circular:
+            print("Strands point in " + str(self.direction[0]) + "' -> " + str(self.direction[1]) + "' direction.")
         for i, strandy in enumerate(self.strand_list):
             print("Strand " + str(i+1) + " has " + str(len(strandy.res)) + " residues.")
             
@@ -281,7 +292,7 @@ class trajectory:
         else:
             step = 1
             skip = False
-            config = configuration(step,direction=self.direction)
+            config = configuration(step,circular=self.circular,direction=self.direction)
             config.load_strand_list(self.strand_list)
             with open(self.file_name,"r") as file:
                 long_line = []
@@ -332,10 +343,10 @@ class trajectory:
                                     
                                     self.last_conf = config
                                     # print("Step:", step, end='\r', flush=True)
-                                    # print("Step:", step)
+                                    print("Step:", step)
                                     strand_i = 0                             
                                     step += 1                 
-                                    config = configuration(step, direction=self.direction)
+                                    config = configuration(step,circular=self.circular, direction=self.direction)
                                     config.load_strand_list(self.strand_list)
                                     skip = True
                                     if step > max_steps:
@@ -421,10 +432,11 @@ class configuration:
     '''
     decribes a single time-step configuration
     '''
-    def __init__(self,step,direction="35"):
+    def __init__(self,step,circular,direction="35"):
         self.step = step
         self.nstrands = 0
         self.direction = direction
+        self.circular=circular
         
     def add_strands(self):
         self.strand_list.append(strand)

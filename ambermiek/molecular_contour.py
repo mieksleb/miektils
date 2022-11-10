@@ -54,7 +54,7 @@ def setX(V):
     return Rz
 
 @njit(fastmath=True)
-def CAXIS(bp, r, theta_vals, linear=False): 
+def CAXIS(bp, r, theta_vals, circular=True): 
     r1 = np.zeros(np.shape(r)) 
     for j in range(bp):
         Tw = 0
@@ -65,13 +65,13 @@ def CAXIS(bp, r, theta_vals, linear=False):
         while (Tw < 360.0):
             k += 1
             prev = Tw             # store previous total twist
-            if linear and (j-k < 0 or j+k >= bp):
+            if not circular and (j-k < 0 or j+k >= bp):
                 break
             else:
                 Tw += theta_vals[(j-k)%bp] + theta_vals[(j+k)%bp] # adding two more flanking steps then ttw would exceed 360.0
                 Sum[:] += r[(j-k)%bp,:] + r[(j+k)%bp,:]  # sum up the single helix position
         
-        if linear and (j-k < 0 or j+k >= bp):
+        if not circular and (j-k < 0 or j+k >= bp):
             w = 0
         else:
             w = (360.0 - prev) / (Tw - prev)       # weighting
@@ -84,7 +84,7 @@ def CAXIS(bp, r, theta_vals, linear=False):
 
 # average position of 2x5 neighbours of C1'-midpoints C1' 
 # @njit(fastmath=True)
-def HAXIS(bp, r, linear = False):
+def HAXIS(bp, r, circular=True):
     haxis = np.zeros((bp,3))
     for j in range(bp):
         Sum = np.zeros((3))
@@ -92,7 +92,7 @@ def HAXIS(bp, r, linear = False):
         k = 0
         while k < 5:
             k += 1
-            if linear:
+            if not circular:
                 try:
                     Sum[:] += (r[j-k, :] + r[j+k,:])
                 except IndexError:
@@ -120,14 +120,14 @@ def get_twist(diff1, diff2, z):
 
 
 # @njit(fastmath=True)
-def full_twist(bp, haxis, diff, linear = False):
+def full_twist(bp, haxis, diff, circular=True):
     """
     Calculates twist
     """
     twist = np.zeros(bp)
     for j in range(bp):
             # Linear special cases
-        if linear:
+        if not circular:
             # Does haxis[:, :, j+1] exist?
             if np.shape(haxis)[0] > j + 1:
                 # If haxis[j-1,:] doesn't exist,
@@ -147,27 +147,27 @@ def full_twist(bp, haxis, diff, linear = False):
             z = haxis[(j+1) % bp, :] - haxis[(j-1) % bp, :]
             diff1 = diff[j%bp, :]
             diff2 = diff[ (j+1)%bp, :]
-            twist[j] = twist(diff1, diff2, z)
+            twist[j] = get_twist(diff1, diff2, z)
             
     return twist
 
 
 
-def get_molecular_contour(bp, strandApos, strandBpos, linear=False):
+def get_molecular_contour(bp, strandApos, strandBpos, circular=True):
     centres = (strandApos + strandBpos)/2
     diff = - strandApos + strandBpos
     diff /= np.sqrt((diff ** 2).sum(-1))[..., np.newaxis]
     
-    if linear:
+    if not circular:
         new_centres = centres
     else:
         new_centres = np.array([ (centres[(i+1)%bp,:] + centres[i,:]) / 2 for i in range(bp)])
 
-    haxis = HAXIS(bp, new_centres, linear=linear)
+    haxis = HAXIS(bp, new_centres, circular=circular)
 
-    twist_vals = full_twist(bp, haxis, diff, linear=linear)
+    twist_vals = full_twist(bp, haxis, diff, circular=circular)
     
-    mol_cont = CAXIS(bp, new_centres, twist_vals, linear=linear)
+    mol_cont = CAXIS(bp, new_centres, twist_vals, circular=circular)
     
     return mol_cont
 
