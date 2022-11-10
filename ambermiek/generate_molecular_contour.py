@@ -38,7 +38,7 @@ else:
 
 traj = pdb_miek.trajectory(crd,circular=circular)
 res = traj.load_topology(top)
-traj.process_configurations([("molecular contour", miek_tools.mol_cont)], max_steps=20)
+traj.process_configurations([("molecular contour", miek_tools.mol_cont)])
 
 with open(xyz,"w") as file:
     list_of_quants = traj.quant_dict["molecular contour"]
