@@ -64,9 +64,9 @@ def get_twist_writhe_conf(conf):
     
     """
     strandA = conf.strand_list[0]
-    strandApos = np.array(strandA.get_atom_list("C1'"))
+    strandApos = np.array(strandA.get_atom_list("P"))
     strandB = conf.strand_list[1]
-    strandBpos = strandB.get_atom_list("C1'")
+    strandBpos = strandB.get_atom_list("P")
     strandBpos.reverse()
     strandBpos = np.array(strandBpos)
 
