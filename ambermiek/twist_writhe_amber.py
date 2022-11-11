@@ -12,6 +12,7 @@ import sys
 crd = sys.argv[1]
 top = sys.argv[2]
 circ = sys.argv[3]
+twist_writhe_file = sys.argv[4]
 
 
 import pdb_miek
@@ -26,14 +27,14 @@ else:
 
 traj = pdb_miek.trajectory(crd,circular=circular)
 res = traj.load_topology(top)
-traj.process_configurations([("twist writhe", get_twist_writhe_conf)],max_steps=100)
+traj.process_configurations([("twist writhe", get_twist_writhe_conf)])
 
 
 list_of_quants = traj.quant_dict["twist writhe"]
 
-# with open(twist_writhe_file, "w") as file:
-#     for twist, writhe in zip(twist_list,writhe_list):
-#         file.write(str(twist) +" " +str(writhe)+ '\n')
+with open(twist_writhe_file, "w") as file:
+    for twist, writhe in list_of_quants:
+        file.write(str(twist) +" " +str(writhe)+ '\n')
 
     
         
