@@ -843,6 +843,7 @@ def disc_curvature(r,circular):
     bp = np.shape(r)[0]
     curv = np.zeros(bp)
     diff =  np.array([r[(j+1)%bp,:] - r[j,:] for j in range(bp)])
+    # diff = np.diff(r[:,:], axis=0, append=0)
     diff /= np.sqrt((diff ** 2).sum(-1))[..., np.newaxis]
     length = bp-1
     if circular:
@@ -893,7 +894,6 @@ def get_angles(r,extent,circular):
 
     """
     bp = np.shape(r)[0]
-    curv = np.zeros(bp)
     diff1 =  np.array([r[(j+extent)%bp,:] - r[j,:] for j in range(bp)])
     diff1 /= np.sqrt((diff1 ** 2).sum(-1))[..., np.newaxis]
     

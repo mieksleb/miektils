@@ -171,6 +171,29 @@ def get_molecular_contour(bp, strandApos, strandBpos, circular=True):
     
     return mol_cont
 
+
+def mol_cont(conf, buffer=5):
+    """
+    Function is called during pdb_miek.trajectory.process_configurations()
+    to write additonal lines to molecular contour file
+    
+    """
+    strandA = conf.strand_list[0]
+    strandApos = np.array(strandA.get_atom_list("C1'"))
+    strandB = conf.strand_list[1]
+    strandBpos = strandB.get_atom_list("C1'")
+    strandBpos.reverse()
+    strandBpos = np.array(strandBpos)
+
+    bp = len(strandApos)
+
+    r1 = get_molecular_contour(bp, strandApos, strandBpos, circular=conf.circular)
+    
+    
+    if conf.circular==False: 
+        r1 = r1[buffer:bp-buffer,:]
+        
+    return r1
      
 
      

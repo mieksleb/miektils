@@ -331,17 +331,19 @@ def disc_curvature(r, circular):
     """
     bp = np.shape(r)[0]
     curv = np.zeros(bp)
-    diff = np.array([r[(j+1) % bp, :] - r[j, :] for j in range(bp)])
+    # diff = np.array([r[(j+1) % bp, :] - r[j, :] for j in range(bp)])
+    diff = np.diff(r[:,:], axis=0, append=0)
     diff /= np.sqrt((diff ** 2).sum(-1))[..., np.newaxis]
     length = bp-1
     if circular:
         length += 1
-    delta_s = [np.sqrt((r[(ii+1) % bp, 0]-r[ii, 0])**2+(r[(ii+1) % bp, 1]-r[ii, 1])
-                       ** 2+(r[(ii+1) % bp, 2]-r[ii, 2])**2) for ii in range(length)]
+    delta_s = np.array([np.sqrt((r[(ii+1) % bp, 0]-r[ii, 0])**2+(r[(ii+1) % bp, 1]-r[ii, 1])
+                       ** 2+(r[(ii+1) % bp, 2]-r[ii, 2])**2) for ii in range(length)])
 
     curv = np.array([np.linalg.norm(
         (diff[(j+1) % bp, :] - diff[j, :])/(delta_s[j])) for j in range(length)])
     return curv
+
 
 
 @njit(fastmath=True)

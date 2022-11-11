@@ -9,10 +9,6 @@ import sys
 import miek_tools
 import pdb_miek
 
-# crd = "minicircle/Hussain/MDNA/dv160t0_md9_nw.trj"
-# # crd = "minicircle/Hussain/dv160t0tt5_long_nw.trj"
-# # crd = "TT_40/MDNA/dv40t_longrun_nw.trj"
-# top = "minicircle/Hussain/MDNA/dv160t0.top"
 
 
 crd = sys.argv[1]
@@ -24,16 +20,6 @@ if int(circ) == 1:
     circular = True
 else:
     circular = False
-
-# crd = "minicircle/Hussain/MTTD5/dv160t0tt5_longrun_nw.trj"
-# top = "minicircle/Hussain/MTTD5/dv160t0tt5.top"
-# xyzfile = "minicircle/Hussain/molecular_contour_MTTD5.xyz"
-
-
-# crd = "minicircle/Hussain/MDNA/dv160t0_longrun_nw.trj"
-# top = "minicircle/Hussain/MDNA/dv160t0.top"
-# xyzfile = "minicircle/Hussain/molecular_contour_MDNA.xyz"
-
 
 
 traj = pdb_miek.trajectory(crd,circular=circular)

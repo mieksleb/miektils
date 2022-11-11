@@ -8,7 +8,8 @@ Collection of tools for calculating quantities using pdb_miek classes such as co
 @author: michaelselby
 """
 import numpy as np
-from tools import get_angle
+from tools import get_angle, get_spline
+from tools_fast_math import get_twist_writhe
 from molecular_contour import get_molecular_contour
 from numba import njit
 
@@ -55,6 +56,26 @@ def mol_cont(conf, buffer=5):
         r1 = r1[buffer:bp-buffer,:]
         
     return r1
+
+
+def get_twist_writhe_conf(conf):
+    """
+    Gets the twist and writhe of a single configuration
+    
+    """
+    strandA = conf.strand_list[0]
+    strandApos = np.array(strandA.get_atom_list("C1'"))
+    strandB = conf.strand_list[1]
+    strandBpos = strandB.get_atom_list("C1'")
+    strandBpos.reverse()
+    strandBpos = np.array(strandBpos)
+
+    spline1 = get_spline(strandApos,per=conf.circular)
+    spline2 = get_spline(strandBpos,per=conf.circular)   
+    
+    twist, writhe = get_twist_writhe(spline1, spline2, npoints=1000, circular=conf.circular)
+        
+    return twist, writhe
 
 
         
