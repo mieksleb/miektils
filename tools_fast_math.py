@@ -53,6 +53,7 @@ def normalize(vec):
 @njit(fastmath=True)
 def norm(vec):
     return np.sqrt(np.dot(vec, vec))
+    # return np.linalg.norm(vec)
 
 
 @njit(fastmath=True)
