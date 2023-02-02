@@ -52,8 +52,8 @@ def mol_cont(conf, buffer=5):
     r1 = get_molecular_contour(bp, strandApos, strandBpos, circular=conf.circular)
     
     
-    if conf.circular==False: 
-        r1 = r1[buffer:bp-buffer,:]
+    # if conf.circular==False: 
+    #     r1 = r1[buffer:bp-buffer,:]
         
     return r1
 

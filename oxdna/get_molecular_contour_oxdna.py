@@ -72,7 +72,8 @@ with open(xyz,"w") as mol_cont_file:
                     mol_cont_file.write("\n")
                     count = 0
                     step += 1
-                    print(step)
+                    if step % 1000 == 0:
+                        print(step)
 
                 else:  
                     count +=1

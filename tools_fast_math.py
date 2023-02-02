@@ -313,7 +313,17 @@ def radius_of_gyration(r):
     return rad
 
 
-@njit(fastmath=True)
+
+# @njit(fastmath=True)
+def difference(r, circular):
+    bp = np.shape(r)[0]
+    diff = [r[(j+1), :] - r[j, :] for j in range(bp-1)]
+    diff.append(r[0, :] - r[-1, :])
+    diff = np.array(diff)
+    return diff
+
+
+# @njit(fastmath=True)
 def disc_curvature(r, circular):
     """
     Parameters
@@ -332,17 +342,21 @@ def disc_curvature(r, circular):
     """
     bp = np.shape(r)[0]
     curv = np.zeros(bp)
-    # diff = np.array([r[(j+1) % bp, :] - r[j, :] for j in range(bp)])
-    diff = np.diff(r[:,:], axis=0, append=0)
-    diff /= np.sqrt((diff ** 2).sum(-1))[..., np.newaxis]
-    length = bp-1
+    diff = difference(r, circular)
+    delta_s = np.sqrt((diff ** 2).sum(-1))[..., np.newaxis][:,0]
+    # diff = np.diff(r, axis=0, append=0)
+    # diff /= np.sqrt((diff ** 2).sum(-1))[..., np.newaxis]
+    diff = np.array([ diff / norm(diff) for diff in diff])
+    
+    
+    length = bp - 1
     if circular:
         length += 1
-    delta_s = np.array([np.sqrt((r[(ii+1) % bp, 0]-r[ii, 0])**2+(r[(ii+1) % bp, 1]-r[ii, 1])
-                       ** 2+(r[(ii+1) % bp, 2]-r[ii, 2])**2) for ii in range(length)])
-
-    curv = np.array([np.linalg.norm(
-        (diff[(j+1) % bp, :] - diff[j, :])/(delta_s[j])) for j in range(length)])
+        
+    diff2 = difference(diff,circular)
+    curv = np.array([norm(diff2[i,:])/delta_s[i] for i in range(length)])
+    # curv = np.sqrt( (dtanz*tany - dtany*tanz) **2 + (dtanx*tanz - dtanz*tanx) **2 + (dtany*tanx - dtanx*tany) **2  ) / (tanx **2 + tany **2 + tanz **2)**(1.5)
+    
     return curv
 
 
