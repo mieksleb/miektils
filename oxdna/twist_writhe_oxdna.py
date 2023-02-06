@@ -13,7 +13,7 @@ from tools_fast_math import get_twist_writhe
 top_name = sys.argv[1]
 conf_name = sys.argv[2]
 file_name = sys.argv[3]
-npoints = sys.argv[4]
+npoints = int(sys.argv[4])
 
 toplines = open(top_name,"r").readlines()
 
