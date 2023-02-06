@@ -395,6 +395,37 @@ def get_angles(r, extent, circular):
 
 
 
-
+@njit(fastmath=True)
+def get_writhe_xyz(r, circular):
+    npoints = r.shape[0]
+    length = 0
+    for i in range(0, npoints - 1):
+        length += norm(r[i+1,:]-r[i,:])
+    if circular:
+        length += norm(r[0,:]-r[-1,:])
+    writhe = 0
+    tangent = np.empty((npoints-1,3))
+    for i in range(0,npoints-1):
+        tangent[i,:] = (r[i+1,:]-r[i,:])/norm((r[i+1,:]-r[i,:]))
+    
+    for i in range(0,npoints-1):
+        ti = tangent[i, :]
+        ri = r[i, :]
+        for j in range(0,npoints-1):
+            if i > j:
+                tj = tangent[j, :]
+                rj = r[j, :]
+                val = multidet(ti, tj, ri-rj)
+                diff = norm(ri-rj)
+                # if diff < 0.001 or np.isnan(val) or np.isnan(val):
+                #     val = 0
+                # else:
+                val /= diff**3
+                writhe += val
+                
+    writhe /= (2*np.pi)
+    writhe *= (length/npoints)**2
+    
+    return writhe
 
 

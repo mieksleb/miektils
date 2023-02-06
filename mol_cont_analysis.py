@@ -6,7 +6,7 @@ Created on Thu Feb  2 10:31:31  2023
 @author: michaelselby
 """
 from tools import disc_curvature
-# from tools_fast_math import disc_curvature
+from tools_fast_math import get_writhe_xyz
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
@@ -16,6 +16,7 @@ file = sys.argv[1]
 circ = sys.argv[2]
 
 output_file = "curvature.dat"
+writhe_file = "writhe_xyz.dat"
 
 if int(circ) == 1:
     circular = True
@@ -27,6 +28,7 @@ else:
 # output_file = "/Users/michaelselby/Documents/DPhil/miektils/ambermiek/minicircle/Hussain/MDNA/curvature.dat"
 # circular = True
 
+writhe_vals = []
 
 with open(file,"r") as file:
     bp = int(file.readline())
@@ -46,6 +48,8 @@ with open(file,"r") as file:
             i = 0
             curv_vals = disc_curvature(r, circular)
             curvature += curv_vals
+            writhe = get_writhe_xyz(r,circular)
+            writhe_vals.append(writhe)
             steps += 1
 
 
@@ -54,4 +58,8 @@ with open(file,"r") as file:
 with open(output_file,"w") as file:
     for curv in curvature:
         file.write(str(curv) + "\n")
+        
+with open(writhe_file,"w") as file:
+    for writhe in writhe_vals:
+        file.write(str(writhe) + "\n")
     

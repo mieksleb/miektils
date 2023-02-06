@@ -54,7 +54,7 @@ with open(file_name,"w") as twist_writhe_file:
                     twist_writhe_file.write(str(twist) + " " + str(writhe) + "\n")
                     count = 0
                     step += 1
-                    print(step)
+                    # print(step)
                 else:  
                     count +=1
     
