@@ -13,6 +13,7 @@ from tools_fast_math import get_twist_writhe
 top_name = sys.argv[1]
 conf_name = sys.argv[2]
 file_name = sys.argv[3]
+npoints = sys.argv[4]
 
 toplines = open(top_name,"r").readlines()
 
@@ -50,7 +51,7 @@ with open(file_name,"w") as twist_writhe_file:
                     spline1 = get_spline(strand1pos)
                     spline2 = get_spline(strand2pos)
     
-                    twist, writhe = get_twist_writhe(spline1,spline2,1000,circular)
+                    twist, writhe = get_twist_writhe(spline1,spline2,npoints,circular)
                     twist_writhe_file.write(str(twist) + " " + str(writhe) + "\n")
                     count = 0
                     step += 1
