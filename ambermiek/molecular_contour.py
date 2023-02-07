@@ -153,7 +153,7 @@ def full_twist(bp, haxis, diff, circular=True):
 
 
 
-def get_molecular_contour(bp, strandApos, strandBpos, circular=True):
+def get_molecular_contour(bp, strandApos, strandBpos, circular=True, buffer=12):
     centres = (strandApos + strandBpos)/2
     diff = - strandApos + strandBpos
     diff /= np.sqrt((diff ** 2).sum(-1))[..., np.newaxis]
@@ -168,6 +168,9 @@ def get_molecular_contour(bp, strandApos, strandBpos, circular=True):
     twist_vals = full_twist(bp, haxis, diff, circular=circular)
     
     mol_cont = CAXIS(bp, new_centres, twist_vals, circular=circular)
+    
+    if not circular: 
+        mol_cont = mol_cont[buffer:bp-buffer,:]
     
     return mol_cont
 
