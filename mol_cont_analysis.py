@@ -45,7 +45,10 @@ writhe_vals = []
 with open(file,"r") as file:
     bp = int(file.readline())
     r = np.empty((bp,3))
-    curvature = np.zeros((bp))
+    length = bp
+    if not circular:
+        length -= 1
+    curvature = np.zeros((length))
     file.readline()
     i = 0
     steps = 0
@@ -64,6 +67,7 @@ with open(file,"r") as file:
             if writhe_bool:
                 writhe = get_writhe_xyz(r,circular)
                 writhe_vals.append(writhe)
+                
             steps += 1
 
 

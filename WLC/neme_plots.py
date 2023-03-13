@@ -6,9 +6,10 @@ Created on Sun Jan 15 20:59:52 2023
 @author: michaelselby
 """
 import matplotlib.pyplot as plt
+import tikzplotlib
 
 
-lines = open("neme_data.dat", "r").readlines()
+lines = open("neme_data2.dat", "r").readlines()
 
 keys = lines[0].split()
 
@@ -36,11 +37,12 @@ for dic in dict_list:
         col = "blue"
         label = "BDNA"
         plt.scatter( x , y, color="blue")
+        print(x, y)
         last_bdna = x, y
         
 plt.scatter( last_neme[0] , last_neme[1], label="Plectoneme", color="red")
 plt.scatter( last_bdna[0] , last_bdna[1], label="BDNA", color="blue")
 plt.legend()
     
-
+tikzplotlib.save("neme_phase_diagram_test.tex")
 plt.show()

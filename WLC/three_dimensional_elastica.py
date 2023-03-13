@@ -1311,14 +1311,39 @@ def loop_solver2(c, L, A, f, r0, niter):
     b = c + (a-c)*m
     return a, b
 
-nemey_daniel = Plectoneme3D(length=500, A=50*kT, C=100*kT, f=1, r0 = 3, salt_conc = 100, n = 2, L_loop = 40, f_loop=1, p_twist = 0, righthanded = False)
-nemey_daniel.generate_plectoneme(1000)
-nemey_daniel.plot_plectoneme(style="ribbons")
-nemey_daniel.get_link()
-twist = nemey_daniel.twist
-writhe = nemey_daniel.writhe
-
-
-# nemey_daniel = Plectoneme3D(length=500, A=50*kT, C=100*kT, f=1, r0 = 4, salt_conc = 100, n = 2, L_loop = 40, f_loop=1, p_twist = 0, righthanded = False)
+# nemey_daniel = Plectoneme3D(length=500, A=50*kT, C=100*kT, f=1, r0 = 3, salt_conc = 100, n = 2, L_loop = 40, f_loop=1, p_twist = 0, righthanded = False)
 # nemey_daniel.generate_plectoneme(1000)
 # nemey_daniel.plot_plectoneme(style="ribbons")
+# nemey_daniel.get_link()
+# twist = nemey_daniel.twist
+# writhe = nemey_daniel.writhe
+
+
+nemey_daniel = Plectoneme3D(length=500, A=50*kT, C=100*kT, f=1, r0 = 4, salt_conc = 100, n = 3, L_loop = 40, f_loop=1, p_twist = 0, righthanded = False)
+nemey_daniel.generate_plectoneme(1000)
+nemey_daniel.plot_plectoneme(style="ribbons")
+
+# xyzfile = "neme.xyz"
+# with open(xyzfile,"w") as file:
+#     n = nemey_daniel.r.shape[0]
+#     file.write(str(n))
+#     file.write("\n")
+#     file.write("\n")
+#     for i in range(nemey_daniel.r.shape[0]):
+#         file.write("C " + str(nemey_daniel.r[i,0]) + " " + str(nemey_daniel.r[i,1]) + " " + str(nemey_daniel.r[i,2]) +"\n")
+        
+    
+# xyzfile = "line.xyz"
+# r_line = np.zeros((1000,3))
+# for i in range(1000):
+#     r_line[i,0] = 8*np.sin(i/75)
+#     r_line[i,1] = 4*np.cos(i/100)
+#     r_line[i,2] = i*300/1000
+
+# with open("line.xyz","w") as file:
+#     n = r_line.shape[0]
+#     file.write(str(n))
+#     file.write("\n")
+#     file.write("\n")
+#     for i in range(r_line.shape[0]):
+#         file.write("C " + str(r_line[i,0]) + " " + str(r_line[i,1]) + " " + str(r_line[i,2]) +"\n")
