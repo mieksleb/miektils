@@ -9,14 +9,14 @@ import sys
 import numpy as np
 
 
-# conf = sys.argv[1]
-# top = sys.argv[2]
+conf = sys.argv[1]
+top = sys.argv[2]
 
 # conf = "linear/linear_128/MDNA/relax_trajectory_dv128t.dat"
 # top = "linear/linear_128/MDNA/dv128t.top"
 
-conf = "linear/linear_128/MTTD/relax_trajectory_dv128tt.dat"
-top = "linear/linear_128/MTTD/dv128tt.top"
+# conf = "linear/linear_128/MTTD/relax_trajectory_dv128tt.dat"
+# top = "linear/linear_128/MTTD/dv128tt.top"
 
 
 toplines = open(top,"r").readlines()
