@@ -163,8 +163,8 @@ with open(conf,"r") as conf:
 
                 step += 1
                 count = 0
-                if step > 1:
-                    break
+                # if step > 1:
+                #     break
                 if step % 1000 == 0:
                     print(step)
 
