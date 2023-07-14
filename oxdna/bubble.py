@@ -7,8 +7,6 @@ Created on Mon Jul  4 14:44:16 2022
 """
 import sys
 import numpy as np
-from tools import get_spline
-from tools_fast_math import get_twist_writhe
 
 top_name = sys.argv[1]
 conf_name = sys.argv[2]
